@@ -1,0 +1,77 @@
+type: pbrm
+
+lighting:
+    background: 0.15 0.15 0.15
+    environment: venice
+    skybox: off
+    shadow: off
+    ambient: 1.0
+    punctual: 1.0
+
+materials 3:
+    material 0:
+        basecolor_factor: 1 1 1 1
+        metalness_factor: 1
+        roughness_factor: 1
+        basecolor_map: ponycar/body_basecolor.tga
+        metalness_map: ponycar/body_metalness.tga
+        roughness_map: ponycar/body_roughness.tga
+        normal_map: ponycar/body_normal.tga
+        occlusion_map: null
+        emission_map: ponycar/body_emission.tga
+        double_sided: off
+        enable_blend: off
+        alpha_cutoff: 0
+    material 1:
+        basecolor_factor: 1 1 1 1
+        metalness_factor: 1
+        roughness_factor: 1
+        basecolor_map: ponycar/interior_basecolor.tga
+        metalness_map: ponycar/interior_metalness.tga
+        roughness_map: ponycar/interior_roughness.tga
+        normal_map: ponycar/interior_normal.tga
+        occlusion_map: null
+        emission_map: null
+        double_sided: off
+        enable_blend: off
+        alpha_cutoff: 0
+    material 2:
+        basecolor_factor: 1 1 1 0.75
+        metalness_factor: 0
+        roughness_factor: 1
+        basecolor_map: ponycar/body_basecolor.tga
+        metalness_map: ponycar/body_metalness.tga
+        roughness_map: ponycar/body_roughness.tga
+        normal_map: ponycar/body_normal.tga
+        occlusion_map: null
+        emission_map: null
+        double_sided: off
+        enable_blend: on
+        alpha_cutoff: 0
+
+transforms 1:
+    transform 0:
+        1  0  0  0
+        0  1  0  0
+        0  0  1  0
+        0  0  0  1
+
+models 3:
+    model 0:
+        mesh: ponycar/body.obj
+        skeleton: null
+        attached: -1
+        material: 0
+        transform: 0
+    model 1:
+        mesh: ponycar/interior.obj
+        skeleton: null
+        attached: -1
+        material: 1
+        transform: 0
+    model 2:
+        mesh: ponycar/windows.obj
+        skeleton: null
+        attached: -1
+        material: 2
+        transform: 0

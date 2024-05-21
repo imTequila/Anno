@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.10)
+project(Anno VERSION 1.0)  
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
+
+list(APPEND INCLUDE_LIST libs/glm)
+list(APPEND INCLUDE_LIST libs/stb_image)
+list(APPEND INCLUDE_LIST include)
+
+set(GLAD_DIR ./libs/glad)
+list(APPEND INCLUDE_LIST ${GLAD_DIR}/include)
+
+set(GLFW_DIR ./libs/glfw-3.4)
+option(GLFW_BUILD_EXAMPLES "Build the GLFW example programs" OFF)
+option(GLFW_BUILD_TEST "Build the GLFW test programs" OFF)
+option(GLFW_BUILD_DOCS "Build the GLFW documentation" OFF)
+option(GLFW_INSTALL "Generate installation target" OFF)
+option(GLFW_DOCUMENT_INTERNALS "Include internals in documentation" OFF)
+add_subdirectory(${GLFW_DIR} glfw_binary EXCLUDE_FROM_ALL)
+list(APPEND INCLUDE_LIST ${GLFW_DIR}/include)
+list(APPEND INCLUDE_LIST ${GLFW_DIR}/dpes)
+list(APPEND LINK_LIBS glfw)
+
+aux_source_directory(./src source)
+list(APPEND source ${GLAD_DIR}/src/glad.c)
+list(APPEND source ./libs/stb_image/stb_image.cpp ./libs/stb_image/stb_image_write.cpp)
+
+add_executable(Anno ${source})
+target_include_directories(Anno PUBLIC ${INCLUDE_LIST})
+target_link_libraries(Anno PUBLIC ${LINK_LIBS})

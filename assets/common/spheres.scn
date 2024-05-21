@@ -434,7 +434,7 @@ materials 33:
         enable_blend: off
         alpha_cutoff: 0
 
-transforms 33:
+transforms 34:
     transform 0:
         1  0  0 -7.5
         0  1  0  1.5
@@ -600,8 +600,13 @@ transforms 33:
         0  1  0 -1.5
         0  0  1    0
         0  0  0    1
+    transform 33:
+        5  0  0  0
+        0  5  0  -3
+        0  0  5  0
+        0  0  0  1
 
-models 33:
+models 34:
     model 0:
         mesh: common/sphere.obj
         skeleton: null
@@ -800,3 +805,9 @@ models 33:
         attached: -1
         material: 32
         transform: 32
+    model 33:
+        mesh: common/ground.obj
+        skeleton: null
+        attached: -1
+        material: 10
+        transform: 33

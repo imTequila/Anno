@@ -148,12 +148,11 @@ void main() {
   vec3 light_space = vShadowPos.xyz / vShadowPos.w;
   light_space = light_space * 0.5 + 0.5;
   float depth = texture(uShadowMap, light_space.xy).r;
+  float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
 
-
-  Lo += radiance * BRDF * NdotL;
+  Lo += radiance * BRDF * NdotL * shadow;
   Lo += ibl;
   vec3 color = Lo;
-  color = vec3(light_space.z);
 
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));

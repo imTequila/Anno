@@ -14,8 +14,8 @@
 #include "scene.h"
 #include "shader.h"
 
-const unsigned int SCR_WIDTH = 2040;
-const unsigned int SCR_HEIGHT = 2040;
+const unsigned int SCR_WIDTH = 1080;
+const unsigned int SCR_HEIGHT = 1080;
 
 camera_t camera(glm::vec3(0.0f, 0.0f, 2.0f));
 float lastX = SCR_WIDTH / 2.0f;

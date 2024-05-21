@@ -9,10 +9,10 @@
 
 #define LINE_SIZE 256
 
-const unsigned int SCR_WIDTH = 2040;
-const unsigned int SCR_HEIGHT = 2040;
-const unsigned int SHADOW_WIDTH = 2040;
-const unsigned int SHADOW_HEIGHT = 2040;
+const unsigned int SCR_WIDTH = 1080;
+const unsigned int SCR_HEIGHT = 1080;
+const unsigned int SHADOW_WIDTH = 4080;
+const unsigned int SHADOW_HEIGHT = 4080;
 
 scene_t::scene_t(std::string filename) {
   char scene_type[LINE_SIZE];
@@ -481,8 +481,8 @@ void scene_t::config_shadow_map() {
                SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   shader_t shader_t1("../src/shader/shadow_vertex_shader.glsl",
                         "../src/shader/shadow_fragment_shader.glsl");
@@ -508,6 +508,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],
                                         this->models[i]->transform[2][3]));
+    
     this->shadow_shader.setMat4("uModelMatrix", model);
     this->models[i]->draw();
   }
@@ -515,6 +516,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
 }
 
 void scene_t::draw_scene(camera_t camera) {
+  
   glActiveTexture(GL_TEXTURE3);
   glBindTexture(GL_TEXTURE_2D, this->e_lut);
   glActiveTexture(GL_TEXTURE4);
@@ -531,21 +533,19 @@ void scene_t::draw_scene(camera_t camera) {
       glm::perspective(glm::radians(camera.Zoom),
                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
 
-  glm::vec3 light_pos(0.0, 50.0f, 0.0f);
-  glm::vec3 light_target(0.0f, 0.0f, 0.0f);
-  glm::vec3 light_up = glm::cross(light_target - light_pos, glm::vec3(0.0f, 1.0f, 0.0f));
-  glm::mat4 light_view = glm::lookAt(light_pos, light_target, light_up);
-  glm::mat4 light_projection = glm::ortho(-10.0, 10.0, -10.0, 10.0, 0.1, 100.0);
+  glm::vec3 light_pos(-2.0f, 4.0f, 0.0f);
+  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::mat4 light_projection = glm::ortho(-3.0, 3.0, -3.0, 3.0, 3.0, 7.0);
 
-  draw_shadow_map(view, projection);
+  draw_shadow_map(light_view, light_projection);
 
   this->shader.use();
   this->shader.setMat4("uViewMatrix", view);
   this->shader.setMat4("uProjectionMatrix", projection);
   this->shader.setVec3("uCameraPos", camera.Position);
   this->shader.setVec3("uLightPos", light_pos);
-  this->shader.setMat4("uLightViewMatrix", view);
-  this->shader.setMat4("uLightProjectionMatrix", projection);
+  this->shader.setMat4("uLightViewMatrix", light_view);
+  this->shader.setMat4("uLightProjectionMatrix", light_projection);
   this->shader.setInt("uBasecolorMap", 0);
   this->shader.setInt("uMetalnessMap", 1);
   this->shader.setInt("uRoughnessMap", 2);
@@ -554,7 +554,7 @@ void scene_t::draw_scene(camera_t camera) {
   this->shader.setInt("uPrefilterMap", 5);
   this->shader.setInt("uBRDFLut_ibl", 6);
   this->shader.setInt("uShadowMap", 7);
-
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(0.125f, 0.125f, 0.125f));

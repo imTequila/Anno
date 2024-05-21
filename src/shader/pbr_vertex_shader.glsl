@@ -17,7 +17,9 @@ void main() {
   vFragPos = (uModelMatrix * vec4(aPos, 1.0)).xyz;
   vNormal = (uModelMatrix * vec4(aNor, 0.0)).xyz;
   vTextureCoord = aTex;
-  vShadowPos = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+  vShadowPos = uLightProjectionMatrix * uLightViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+  
   gl_Position =
       uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+
 }

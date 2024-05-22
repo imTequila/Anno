@@ -535,8 +535,8 @@ void scene_t::draw_scene(camera_t camera) {
 
   glm::vec3 light_pos(-2.0f, 4.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  glm::mat4 light_projection = glm::ortho(-3.0, 3.0, -3.0, 3.0, 3.0, 7.0);
-
+  glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom),
+                        (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 3.0f, 10.0f);
   draw_shadow_map(light_view, light_projection);
 
   this->shader.use();

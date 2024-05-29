@@ -183,3 +183,4 @@ void model_t::draw() {
   glBindVertexArray(VAO);
   glDrawArrays(GL_TRIANGLES, 0, 3 * mesh->num_faces);
 }
+

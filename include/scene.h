@@ -18,9 +18,11 @@ public:
   std::string environment;
 
   shader_t shader;
+  shader_t geometry_shader;
   shader_t skybox_shader;
   shader_t shadow_shader;
-
+  shader_t quad_shader;
+  
   unsigned int e_avg;
   unsigned int e_lut;
 
@@ -36,6 +38,13 @@ public:
   unsigned int shadow_map;
   unsigned int shadow_fbo;
 
+  unsigned int geometry_fbo;
+  unsigned int geometry_rbo;
+  unsigned int g_position, g_normal, g_basecolor, g_rmo, g_emission;
+  unsigned int quad_vao;
+  unsigned int quad_vbo;
+
+
   scene_t(std::string filename);
   void read_light(FILE *file);
   material_t *read_material(FILE *file);
@@ -46,10 +55,12 @@ public:
   void config_kulla_conty();
   void config_ibl();
   void config_shadow_map();
+  void confing_deferred();
 
   void draw_skybox(camera_t camera);
   void draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection);
   void draw_scene_forward(camera_t camera);
+  void draw_scene_deferred(camera_t camera);
 };
 
 #endif

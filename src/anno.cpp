@@ -103,11 +103,8 @@ int main() {
 
     processInput(window);
 
-    glClearColor(1.f, 1.f, 1.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     scene.draw_skybox(camera);
-    scene.draw_scene_forward(camera);
+    scene.draw_scene_deferred(camera);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

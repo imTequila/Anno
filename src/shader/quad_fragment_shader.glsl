@@ -1,28 +1,14 @@
 #version 330 core
 in vec2 vTextureCoord;
-in vec3 vNormal;
-in vec3 vFragPos;
-in vec4 vShadowPos;
-in vec3 vTangent;
-in vec3 vBitangent;
-
-uniform int uEnableBump;
-uniform int uEnableOcclusion;
-uniform int uEnableEmission;
 
 uniform vec3 uLightPos;
 uniform vec3 uCameraPos;
 
-uniform vec4 uBasecolor;
-uniform float uMetalness;
-uniform float uRoughness;
-
-uniform sampler2D uBasecolorMap;
-uniform sampler2D uMetalnessMap;
-uniform sampler2D uRoughnessMap;
-uniform sampler2D uNormalMap;
-uniform sampler2D uOcclusionMap;
-uniform sampler2D uEmissionMap;
+uniform sampler2D uPosition;
+uniform sampler2D uNormal;
+uniform sampler2D uBasecolor;
+uniform sampler2D uRMO;
+uniform sampler2D uEmission;
 
 uniform samplerCube uPrefilterMap;
 uniform sampler2D uBRDFLut_ibl;
@@ -30,8 +16,6 @@ uniform sampler2D uBRDFLut_ibl;
 uniform sampler2D uBRDFLut;
 uniform sampler2D uEavgLut;
 
-uniform sampler2D uShadowMap;
- 
 out vec4 FragColor;
 
 const float PI = 3.14159265359;
@@ -73,12 +57,7 @@ vec3 AverageFresnel(vec3 r, vec3 g) {
 }
 
 vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
-  vec3 albedo;
-  if (uBasecolor.r < 0) {
-    albedo = pow(texture(uBasecolorMap, vTextureCoord).rgb, vec3(2.2));
-  } else {
-    albedo = pow(uBasecolor.rgb, vec3(2.2));
-  }
+  vec3 albedo = texture(uBasecolor, vTextureCoord).rgb;
 
   vec3 E_o = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
   vec3 E_i = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
@@ -95,49 +74,28 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
 }
 
 void main() {
-  vec3 albedo;
-  if (uBasecolor.r < 0) {
-    albedo = pow(texture(uBasecolorMap, vTextureCoord).rgb, vec3(2.2));
-  } else {
-    albedo = pow(uBasecolor.rgb, vec3(2.2));
-  }
+  vec3 albedo = texture(uBasecolor, vTextureCoord).rgb;
+  vec3 position = texture(uPosition, vTextureCoord).rgb;
+  vec3 N = texture(uNormal, vTextureCoord).rgb;
 
-  vec3 N = normalize(vNormal);
-  if (uEnableBump == 1) {
-    vec3 T = normalize(vTangent);
-    vec3 B = normalize(vBitangent);
-    mat3 TBN = mat3(T, B, N);
-    vec3 normal_from_map = normalize(texture(uNormalMap, vTextureCoord).rgb * 2.0 - 1.0);
-    N = TBN * normal_from_map;
-  }
-  vec3 V = normalize(uCameraPos - vFragPos);
+  vec3 V = normalize(uCameraPos - position);
   float NdotV = max(dot(N, V), 0.0);
 
-  float metallic;
-  if (uMetalness < 0) {
-    metallic = texture(uMetalnessMap, vTextureCoord).r;
-  } else {
-    metallic = uMetalness;
-  }
+  float metallic = texture(uRMO, vTextureCoord).g;
 
   vec3 F0 = vec3(0.04);
   F0 = mix(F0, albedo, metallic);
 
   vec3 Lo = vec3(0.0);
 
-  vec3 lightDir = uLightPos - vFragPos;
+  vec3 lightDir = uLightPos - position;
   vec3 L = normalize(lightDir);
   vec3 H = normalize(V + L);
   float NdotL = max(dot(N, L), 0.0);
 
   vec3 radiance = vec3(1.0f, 1.0f, 1.0f);
 
-  float roughness;
-  if (uRoughness < 0) {
-    roughness = clamp(texture(uRoughnessMap, vTextureCoord).r, 0.001, 0.999);
-  } else {
-    roughness = clamp(uRoughness, 0.001, 0.999);
-  }
+  float roughness = texture(uRMO, vTextureCoord).r;
 
   float NDF = DistributionGGX(N, H, roughness);
   float G = GeometrySmith(N, V, L, roughness);
@@ -159,25 +117,20 @@ void main() {
   vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
   vec2 env_brdf =
       texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
-  float occlusion = 1.0f;
-  if (uEnableOcclusion == 1) {
-    occlusion = texture(uOcclusionMap, vTextureCoord).r;
-  }
+  float occlusion = texture(uRMO, vTextureCoord).b;
   vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
 
 
 
-  vec3 light_space = vShadowPos.xyz / vShadowPos.w;
-  light_space = light_space * 0.5 + 0.5;
-  float depth = texture(uShadowMap, light_space.xy).r;
-  float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
+//   vec3 light_space = vShadowPos.xyz / vShadowPos.w;
+//   light_space = light_space * 0.5 + 0.5;
+//   float depth = texture(uShadowMap, light_space.xy).r;
+//   float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
 
-  Lo += radiance * BRDF * NdotL * shadow;
+  Lo += radiance * BRDF * NdotL;
   Lo += ibl;
   vec3 color = Lo;
-  if (uEnableEmission == 1) {
-    color += texture(uEmissionMap, vTextureCoord).rgb;
-  }
+  color += texture(uEmission, vTextureCoord).rgb;
 
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));

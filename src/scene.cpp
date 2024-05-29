@@ -48,13 +48,21 @@ scene_t::scene_t(std::string filename) {
   }
   shader_t shader_t1("../src/shader/pbr_vertex_shader.glsl",
                     "../src/shader/pbr_fragment_shader.glsl");
-
   this->shader = shader_t1;
+
+  shader_t shader_t2("../src/shader/geometry_vertex_shader.glsl",
+                    "../src/shader/geometry_fragment_shader.glsl");
+  this->geometry_shader = shader_t2;
+
+  shader_t shader_t3("../src/shader/quad_vertex_shader.glsl",
+                       "../src/shader/quad_fragment_shader.glsl");
+  this->quad_shader = shader_t3;
 
   config_skybox();
   config_kulla_conty();
   config_ibl();
   config_shadow_map();
+  confing_deferred();
 }
 
 void scene_t::read_light(FILE *file) {
@@ -517,7 +525,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
 }
 
 void scene_t::draw_scene_forward(camera_t camera) {
-  
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_2D, this->e_lut);
   glActiveTexture(GL_TEXTURE7);
@@ -585,4 +593,168 @@ void scene_t::draw_scene_forward(camera_t camera) {
     }
     this->models[i]->draw();
   }
+}
+
+void scene_t::confing_deferred() {
+  glGenFramebuffers(1, &this->geometry_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
+
+  glGenTextures(1, &this->g_position);
+  glBindTexture(GL_TEXTURE_2D, this->g_position);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->g_position, 0);
+
+  glGenTextures(1, &this->g_normal);
+  glBindTexture(GL_TEXTURE_2D, this->g_normal);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, this->g_normal, 0);
+  
+  glGenTextures(1, &this->g_basecolor);
+  glBindTexture(GL_TEXTURE_2D, this->g_basecolor);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->g_basecolor, 0);
+  
+  glGenTextures(1, &this->g_rmo);
+  glBindTexture(GL_TEXTURE_2D, this->g_rmo);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, this->g_rmo, 0);
+  
+  glGenTextures(1, &this->g_emission);
+  glBindTexture(GL_TEXTURE_2D, this->g_emission);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, this->g_emission, 0);
+
+  glGenRenderbuffers(1, &geometry_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, geometry_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, geometry_rbo);
+
+  unsigned int attachments[5] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4};
+  glDrawBuffers(5, attachments);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  float quad_vertices[] = {
+      -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+      1.0f,  1.0f, 0.0f, 1.0f, 1.0f, 1.0f,  -1.0f, 0.0f, 1.0f, 0.0f,
+  };
+  glGenBuffers(1, &this->quad_vbo);
+  glGenVertexArrays(1, &this->quad_vao);
+  glBindVertexArray(this->quad_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, this->quad_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices,
+               GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
+                        (void *)(3 * sizeof(float)));
+  glBindVertexArray(0);
+}
+
+void scene_t::draw_scene_deferred(camera_t camera) {
+  glm::mat4 view = camera.GetViewMatrix();
+  glm::mat4 projection =
+      glm::perspective(glm::radians(camera.Zoom),
+                        (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
+  glm::vec3 light_pos(-2.0f, 4.0f, 0.0f);
+  this->geometry_shader.use();
+  this->geometry_shader.setMat4("uViewMatrix", view);
+  this->geometry_shader.setMat4("uProjectionMatrix", projection);
+  this->geometry_shader.setInt("uBasecolorMap", 0);
+  this->geometry_shader.setInt("uMetalnessMap", 1);
+  this->geometry_shader.setInt("uRoughnessMap", 2);
+  this->geometry_shader.setInt("uNormalMap", 3);
+  this->geometry_shader.setInt("uOcclusionMap", 4);
+  this->geometry_shader.setInt("uEmissionMap", 5);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+  for (int i = 0; i < this->models.size(); i++) {
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    model =
+        glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
+                                        this->models[i]->transform[1][3],
+                                        this->models[i]->transform[2][3]));
+
+    this->geometry_shader.setMat4("uModelMatrix", model);
+    this->geometry_shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
+    this->geometry_shader.setFloat("uMetalness",
+                    this->models[i]->material->metalness_factor);
+    this->geometry_shader.setFloat("uRoughness",
+                    this->models[i]->material->roughness_factor);
+
+    if (this->models[i]->normal_map >= 0) {
+      this->geometry_shader.setInt("uEnableBump", 1);
+    }
+    if (this->models[i]->occlusion_map >= 0) {
+      this->geometry_shader.setInt("uEnableOcclusion", 1);
+    }
+    if (this->models[i]->emission_map >= 0) {
+      this->geometry_shader.setInt("uEnableEmission", 1);
+    }
+    this->models[i]->draw();
+  }
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, this->g_position);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, this->g_normal);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, this->g_basecolor);
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, this->g_rmo);
+  glActiveTexture(GL_TEXTURE4);
+  glBindTexture(GL_TEXTURE_2D, this->g_emission);
+
+  glActiveTexture(GL_TEXTURE6);
+  glBindTexture(GL_TEXTURE_2D, this->e_lut);
+  glActiveTexture(GL_TEXTURE7);
+  glBindTexture(GL_TEXTURE_2D, this->e_avg);
+  glActiveTexture(GL_TEXTURE8);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
+  glActiveTexture(GL_TEXTURE9);
+  glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
+  glActiveTexture(GL_TEXTURE10);
+  glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  this->quad_shader.use();
+
+  this->quad_shader.setMat4("uViewMatrix", view);
+  this->quad_shader.setMat4("uProjectionMatrix", projection);
+  this->quad_shader.setVec3("uCameraPos", camera.Position);
+  this->quad_shader.setVec3("uLightPos", light_pos);
+  this->quad_shader.setInt("uPosition", 0);
+  this->quad_shader.setInt("uNormal", 1);
+  this->quad_shader.setInt("uBasecolor", 2);
+  this->quad_shader.setInt("uRMO", 3);
+  this->quad_shader.setInt("uEmission", 4);
+
+  this->quad_shader.setInt("uBRDFLut", 6);
+  this->quad_shader.setInt("uEavgLut", 7);
+  this->quad_shader.setInt("uPrefilterMap", 8);
+  this->quad_shader.setInt("uBRDFLut_ibl", 9);
+  this->quad_shader.setInt("uShadowMap", 10);
+
+  glBindVertexArray(quad_vao);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }

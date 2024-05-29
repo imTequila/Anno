@@ -3,6 +3,12 @@ in vec2 vTextureCoord;
 in vec3 vNormal;
 in vec3 vFragPos;
 in vec4 vShadowPos;
+in vec3 vTangent;
+in vec3 vBitangent;
+
+uniform int uEnableBump;
+uniform int uEnableOcclusion;
+uniform int uEnableEmission;
 
 uniform vec3 uLightPos;
 uniform vec3 uCameraPos;
@@ -14,6 +20,9 @@ uniform float uRoughness;
 uniform sampler2D uBasecolorMap;
 uniform sampler2D uMetalnessMap;
 uniform sampler2D uRoughnessMap;
+uniform sampler2D uNormalMap;
+uniform sampler2D uOcclusionMap;
+uniform sampler2D uEmissionMap;
 
 uniform samplerCube uPrefilterMap;
 uniform sampler2D uBRDFLut_ibl;
@@ -94,6 +103,13 @@ void main() {
   }
 
   vec3 N = normalize(vNormal);
+  if (uEnableBump == 1) {
+    vec3 T = normalize(vTangent);
+    vec3 B = normalize(vBitangent);
+    mat3 TBN = mat3(T, B, N);
+    vec3 normal_from_map = normalize(texture(uNormalMap, vTextureCoord).rgb);
+    N = TBN * normal_from_map;
+  }
   vec3 V = normalize(uCameraPos - vFragPos);
   float NdotV = max(dot(N, V), 0.0);
 
@@ -143,7 +159,13 @@ void main() {
   vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
   vec2 env_brdf =
       texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
-  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y);
+  float occlusion = 1.0f;
+  if (uEnableOcclusion == 1) {
+    occlusion = texture(uOcclusionMap, vTextureCoord).r;
+  }
+  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
+
+
 
   vec3 light_space = vShadowPos.xyz / vShadowPos.w;
   light_space = light_space * 0.5 + 0.5;
@@ -153,6 +175,9 @@ void main() {
   Lo += radiance * BRDF * NdotL * shadow;
   Lo += ibl;
   vec3 color = Lo;
+  if (uEnableEmission == 1) {
+    color += texture(uEmissionMap, vTextureCoord).rgb;
+  }
 
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));

@@ -49,7 +49,7 @@ public:
 
   void draw_skybox(camera_t camera);
   void draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection);
-  void draw_scene(camera_t camera);
+  void draw_scene_forward(camera_t camera);
 };
 
 #endif

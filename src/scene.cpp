@@ -8,6 +8,7 @@
 #include <stb_image.h>
 
 #define LINE_SIZE 256
+#define PI 3.1415926f
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 1080;
@@ -515,17 +516,17 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void scene_t::draw_scene(camera_t camera) {
+void scene_t::draw_scene_forward(camera_t camera) {
   
-  glActiveTexture(GL_TEXTURE3);
-  glBindTexture(GL_TEXTURE_2D, this->e_lut);
-  glActiveTexture(GL_TEXTURE4);
-  glBindTexture(GL_TEXTURE_2D, this->e_avg);
-  glActiveTexture(GL_TEXTURE5);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
   glActiveTexture(GL_TEXTURE6);
-  glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
+  glBindTexture(GL_TEXTURE_2D, this->e_lut);
   glActiveTexture(GL_TEXTURE7);
+  glBindTexture(GL_TEXTURE_2D, this->e_avg);
+  glActiveTexture(GL_TEXTURE8);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
+  glActiveTexture(GL_TEXTURE9);
+  glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
+  glActiveTexture(GL_TEXTURE10);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
 
   glm::mat4 view = camera.GetViewMatrix();
@@ -549,15 +550,19 @@ void scene_t::draw_scene(camera_t camera) {
   this->shader.setInt("uBasecolorMap", 0);
   this->shader.setInt("uMetalnessMap", 1);
   this->shader.setInt("uRoughnessMap", 2);
-  this->shader.setInt("uBRDFLut", 3);
-  this->shader.setInt("uEavgLut", 4);
-  this->shader.setInt("uPrefilterMap", 5);
-  this->shader.setInt("uBRDFLut_ibl", 6);
-  this->shader.setInt("uShadowMap", 7);
+  this->shader.setInt("uNormalMap", 3);
+  this->shader.setInt("uOcclusionMap", 4);
+  this->shader.setInt("uEmissionMap", 5);
+  this->shader.setInt("uBRDFLut", 6);
+  this->shader.setInt("uEavgLut", 7);
+  this->shader.setInt("uPrefilterMap", 8);
+  this->shader.setInt("uBRDFLut_ibl", 9);
+  this->shader.setInt("uShadowMap", 10);
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(0.125f, 0.125f, 0.125f));
+    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
     model =
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],
@@ -567,9 +572,17 @@ void scene_t::draw_scene(camera_t camera) {
     this->shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
     this->shader.setFloat("uMetalness",
                     this->models[i]->material->metalness_factor);
-    shader.setFloat("uRoughness",
+    this->shader.setFloat("uRoughness",
                     this->models[i]->material->roughness_factor);
-
+    if (this->models[i]->normal_map >= 0) {
+      this->shader.setInt("uEnableBump", 1);
+    }
+    if (this->models[i]->occlusion_map >= 0) {
+      this->shader.setInt("uEnableOcclusion", 1);
+    }
+    if (this->models[i]->emission_map >= 0) {
+      this->shader.setInt("uEnableEmission", 1);
+    }
     this->models[i]->draw();
   }
 }

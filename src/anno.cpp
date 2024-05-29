@@ -17,7 +17,7 @@
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 1080;
 
-camera_t camera(glm::vec3(0.0f, 0.0f, 2.0f));
+camera_t camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -91,7 +91,7 @@ int main() {
   glEnable(GL_DEPTH_TEST);
 
   /* prepare data  */
-  scene_t scene("../assets/common/spheres.scn");
+  scene_t scene("../assets/helmet/helmet.scn");
 
   
   /*  render  */
@@ -107,7 +107,7 @@ int main() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     scene.draw_skybox(camera);
-    scene.draw_scene(camera);
+    scene.draw_scene_forward(camera);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

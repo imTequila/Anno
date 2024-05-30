@@ -1,12 +1,8 @@
 type: pbrm
 
 lighting:
-    background: 0.15 0.15 0.15
     environment: spruit
-    skybox: off
-    shadow: off
-    ambient: 1.0
-    punctual: 1.0
+
 
 materials 3:
     material 0:

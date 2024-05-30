@@ -9,12 +9,12 @@ model_t::model_t(mesh_t *mesh, material_t *material, glm::mat4 transform) {
   this->mesh = mesh;
   this->material = material;
   this->transform = transform;
-  this->basecolor_map = -1;
-  this->metalness_map = -1;
-  this->roughness_map = -1;
-  this->normal_map = -1;
-  this->occlusion_map = -1;
-  this->emission_map = -1;
+  this->basecolor_map = 0xfff;
+  this->metalness_map = 0xfff;
+  this->roughness_map = 0xfff;
+  this->normal_map = 0xfff;
+  this->occlusion_map = 0xfff;
+  this->emission_map = 0xfff;
   config_buffer();
   config_texture();
 }

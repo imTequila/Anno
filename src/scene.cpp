@@ -582,14 +582,21 @@ void scene_t::draw_scene_forward(camera_t camera) {
                     this->models[i]->material->metalness_factor);
     this->shader.setFloat("uRoughness",
                     this->models[i]->material->roughness_factor);
-    if (this->models[i]->normal_map >= 0) {
-      this->shader.setInt("uEnableBump", 1);
+
+    if (this->models[i]->normal_map < 0xfff) {
+      this->geometry_shader.setInt("uEnableBump", 1);
+    }else{
+      this->geometry_shader.setInt("uEnableBump", 0);
     }
-    if (this->models[i]->occlusion_map >= 0) {
-      this->shader.setInt("uEnableOcclusion", 1);
+    if (this->models[i]->occlusion_map < 0xfff) {
+      this->geometry_shader.setInt("uEnableOcclusion", 1);
+    }else{
+      this->geometry_shader.setInt("uEnableOcclusion", 0);
     }
-    if (this->models[i]->emission_map >= 0) {
-      this->shader.setInt("uEnableEmission", 1);
+    if (this->models[i]->emission_map < 0xfff) {
+      this->geometry_shader.setInt("uEnableEmission", 1);
+    }else{
+      this->geometry_shader.setInt("uEnableEmission", 0);
     }
     this->models[i]->draw();
   }
@@ -699,14 +706,20 @@ void scene_t::draw_scene_deferred(camera_t camera) {
     this->geometry_shader.setFloat("uRoughness",
                     this->models[i]->material->roughness_factor);
 
-    if (this->models[i]->normal_map >= 0) {
+    if (this->models[i]->normal_map < 0xfff) {
       this->geometry_shader.setInt("uEnableBump", 1);
+    }else{
+      this->geometry_shader.setInt("uEnableBump", 0);
     }
-    if (this->models[i]->occlusion_map >= 0) {
+    if (this->models[i]->occlusion_map < 0xfff) {
       this->geometry_shader.setInt("uEnableOcclusion", 1);
+    }else{
+      this->geometry_shader.setInt("uEnableOcclusion", 0);
     }
-    if (this->models[i]->emission_map >= 0) {
+    if (this->models[i]->emission_map < 0xfff) {
       this->geometry_shader.setInt("uEnableEmission", 1);
+    }else{
+      this->geometry_shader.setInt("uEnableEmission", 0);
     }
     this->models[i]->draw();
   }

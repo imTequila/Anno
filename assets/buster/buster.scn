@@ -1,12 +1,8 @@
 type: pbrm
 
 lighting:
-    background: 0.15 0.15 0.15
     environment: workshop
-    skybox: off
-    shadow: off
-    ambient: 1.0
-    punctual: 1.0
+
 
 materials 2:
     material 0:

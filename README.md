@@ -1,7 +1,5 @@
-`
-mkdir build
-cd build
-cmake ..
-make
-./Anno
-`
+- PBR
+- Kulla-Conty Approximation
+- IBL
+- Deffered Rendering
+- Shadow Map

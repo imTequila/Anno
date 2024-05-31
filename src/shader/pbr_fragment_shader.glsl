@@ -103,6 +103,7 @@ void main() {
   }
 
   vec3 N = normalize(vNormal);
+  
   if (uEnableBump == 1) {
     vec3 T = normalize(vTangent);
     vec3 B = normalize(vBitangent);
@@ -165,8 +166,6 @@ void main() {
   }
   vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
 
-
-
   vec3 light_space = vShadowPos.xyz / vShadowPos.w;
   light_space = light_space * 0.5 + 0.5;
   float depth = texture(uShadowMap, light_space.xy).r;
@@ -178,7 +177,6 @@ void main() {
   if (uEnableEmission == 1) {
     color += texture(uEmissionMap, vTextureCoord).rgb;
   }
-
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
   FragColor = vec4(color, 1.0);

@@ -320,7 +320,7 @@ void scene_t::draw_skybox(camera_t camera) {
   this->skybox_shader.setInt("uSkyboxMap", 0);
   this->skybox_shader.setMat4("uProjectionMatrix", skybox_projection);
   this->skybox_shader.setMat4("uViewMatrix", skybox_view);
-
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glDepthMask(GL_FALSE);
   glBindVertexArray(this->skybox_vao);
   glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -525,7 +525,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
 }
 
 void scene_t::draw_scene_forward(camera_t camera) {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_2D, this->e_lut);
   glActiveTexture(GL_TEXTURE7);
@@ -584,19 +584,19 @@ void scene_t::draw_scene_forward(camera_t camera) {
                     this->models[i]->material->roughness_factor);
 
     if (this->models[i]->normal_map < 0xfff) {
-      this->geometry_shader.setInt("uEnableBump", 1);
+      this->shader.setInt("uEnableBump", 1);
     }else{
-      this->geometry_shader.setInt("uEnableBump", 0);
+      this->shader.setInt("uEnableBump", 0);
     }
     if (this->models[i]->occlusion_map < 0xfff) {
-      this->geometry_shader.setInt("uEnableOcclusion", 1);
+      this->shader.setInt("uEnableOcclusion", 1);
     }else{
-      this->geometry_shader.setInt("uEnableOcclusion", 0);
+      this->shader.setInt("uEnableOcclusion", 0);
     }
     if (this->models[i]->emission_map < 0xfff) {
-      this->geometry_shader.setInt("uEnableEmission", 1);
+      this->shader.setInt("uEnableEmission", 1);
     }else{
-      this->geometry_shader.setInt("uEnableEmission", 0);
+      this->shader.setInt("uEnableEmission", 0);
     }
     this->models[i]->draw();
   }
@@ -611,6 +611,8 @@ void scene_t::confing_deferred() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->g_position, 0);
 
   glGenTextures(1, &this->g_normal);
@@ -618,13 +620,17 @@ void scene_t::confing_deferred() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, this->g_normal, 0);
   
   glGenTextures(1, &this->g_basecolor);
   glBindTexture(GL_TEXTURE_2D, this->g_basecolor);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->g_basecolor, 0);
   
   glGenTextures(1, &this->g_rmo);
@@ -632,6 +638,8 @@ void scene_t::confing_deferred() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, this->g_rmo, 0);
   
   glGenTextures(1, &this->g_emission);
@@ -639,6 +647,8 @@ void scene_t::confing_deferred() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, this->g_emission, 0);
 
   glGenRenderbuffers(1, &geometry_rbo);
@@ -724,6 +734,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
     this->models[i]->draw();
   }
 
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, this->g_position);
   glActiveTexture(GL_TEXTURE1);
@@ -745,10 +756,6 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
   glActiveTexture(GL_TEXTURE10);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
-
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   
   this->quad_shader.use();
 
@@ -767,7 +774,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->quad_shader.setInt("uPrefilterMap", 8);
   this->quad_shader.setInt("uBRDFLut_ibl", 9);
   this->quad_shader.setInt("uShadowMap", 10);
-
-  glBindVertexArray(quad_vao);
+  
+  glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }

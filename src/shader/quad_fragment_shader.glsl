@@ -75,6 +75,10 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
 
 void main() {
   vec3 albedo = texture(uBasecolor, vTextureCoord).rgb;
+  float alpha = texture(uBasecolor, vTextureCoord).a;
+  if (alpha < 0.1) {
+    discard;
+  }
   vec3 position = texture(uPosition, vTextureCoord).rgb;
   vec3 N = texture(uNormal, vTextureCoord).rgb;
 
@@ -134,5 +138,6 @@ void main() {
 
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
+
   FragColor = vec4(color, 1.0);
 }

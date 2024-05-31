@@ -55,6 +55,7 @@ void model_t::config_buffer() {
   glEnableVertexAttribArray(2);
   glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 12 * sizeof(float),
                         (void *)(8 * sizeof(float)));
+  glEnableVertexAttribArray(3);
   glBindVertexArray(0);
 }
 
@@ -167,18 +168,30 @@ void model_t::config_texture() {
 }
 
 void model_t::draw() {
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, this->basecolor_map);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, this->metalness_map);
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, this->roughness_map);
-  glActiveTexture(GL_TEXTURE3);
-  glBindTexture(GL_TEXTURE_2D, this->normal_map);
-  glActiveTexture(GL_TEXTURE4);
-  glBindTexture(GL_TEXTURE_2D, this->occlusion_map);
-  glActiveTexture(GL_TEXTURE5);
-  glBindTexture(GL_TEXTURE_2D, this->emission_map);
+  if(this->basecolor_map < 0xfff){
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, this->basecolor_map); 
+  }
+  if(this->metalness_map < 0xfff){
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, this->metalness_map);
+  }
+  if(this->roughness_map < 0xfff){
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, this->roughness_map);
+  }
+  if(this->normal_map < 0xfff){
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, this->normal_map);
+  }
+  if(this->occlusion_map < 0xfff){
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, this->occlusion_map);
+  }
+  if(this->emission_map < 0xfff){
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, this->emission_map);
+  }
 
   glBindVertexArray(VAO);
   glDrawArrays(GL_TRIANGLES, 0, 3 * mesh->num_faces);

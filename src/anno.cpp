@@ -66,6 +66,19 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
+std::string opengl_errno_name(int err) {
+	switch (err) {
+#define PER_GL_ERROR(x) case GL_##x: return #x;
+		PER_GL_ERROR(NO_ERROR)
+			PER_GL_ERROR(INVALID_ENUM)
+			PER_GL_ERROR(INVALID_VALUE)
+			PER_GL_ERROR(INVALID_OPERATION)
+			PER_GL_ERROR(STACK_OVERFLOW)
+			PER_GL_ERROR(STACK_UNDERFLOW)
+			PER_GL_ERROR(OUT_OF_MEMORY)
+	}
+	return "unknown error: " + std::to_string(err);
+}
 
 int main() {
   /*  init  */
@@ -100,7 +113,7 @@ int main() {
     float currentFrame = static_cast<float>(glfwGetTime());
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
-
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     processInput(window);
 
     scene.draw_skybox(camera);

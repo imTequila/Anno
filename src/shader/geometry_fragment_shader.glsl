@@ -23,7 +23,7 @@ uniform sampler2D uEmissionMap;
 
 layout (location = 0) out vec3 g_position;
 layout (location = 1) out vec3 g_normal;
-layout (location = 2) out vec3 g_basecolor;
+layout (location = 2) out vec4 g_basecolor;
 layout (location = 3) out vec3 g_rmo;
 layout (location = 4) out vec3 g_emission;
 
@@ -47,7 +47,7 @@ void main() {
   } else {
     albedo = pow(uBasecolor.rgb, vec3(2.2));
   }
-  g_basecolor = albedo;
+  g_basecolor = vec4(albedo, 1.0);
 
   float roughness;
   if (uRoughness < 0) {

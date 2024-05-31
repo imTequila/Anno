@@ -651,13 +651,22 @@ void scene_t::confing_deferred() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, this->g_emission, 0);
 
+  glGenTextures(1, &this->g_depth);
+  glBindTexture(GL_TEXTURE_2D, this->g_depth);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, this->g_depth, 0);
+
   glGenRenderbuffers(1, &geometry_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, geometry_rbo);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, geometry_rbo);
 
-  unsigned int attachments[5] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4};
-  glDrawBuffers(5, attachments);
+  unsigned int attachments[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
+  glDrawBuffers(6, attachments);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
@@ -735,6 +744,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, this->g_position);
   glActiveTexture(GL_TEXTURE1);
@@ -745,6 +755,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->g_rmo);
   glActiveTexture(GL_TEXTURE4);
   glBindTexture(GL_TEXTURE_2D, this->g_emission);
+  glActiveTexture(GL_TEXTURE5);
+  glBindTexture(GL_TEXTURE_2D, this->g_depth);
 
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_2D, this->e_lut);
@@ -768,7 +780,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->quad_shader.setInt("uBasecolor", 2);
   this->quad_shader.setInt("uRMO", 3);
   this->quad_shader.setInt("uEmission", 4);
-
+  this->quad_shader.setInt("uDepth", 5);
   this->quad_shader.setInt("uBRDFLut", 6);
   this->quad_shader.setInt("uEavgLut", 7);
   this->quad_shader.setInt("uPrefilterMap", 8);

@@ -152,7 +152,6 @@ void main() {
   float denominator = max((4.0 * NdotL * NdotV), 0.001);
   vec3 Fmicro = numerator / denominator;
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
-  // vec3 BRDF = Fmicro + Fms + (kD * albedo / PI);
   vec3 BRDF = Fms + Fmicro;
 
   vec3 R = reflect(-V, N);

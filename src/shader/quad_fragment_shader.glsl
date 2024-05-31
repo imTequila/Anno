@@ -1,5 +1,6 @@
 #version 330 core
 in vec2 vTextureCoord;
+in mat4 vWorldToScreen;
 
 uniform vec3 uLightPos;
 uniform vec3 uCameraPos;
@@ -9,6 +10,7 @@ uniform sampler2D uNormal;
 uniform sampler2D uBasecolor;
 uniform sampler2D uRMO;
 uniform sampler2D uEmission;
+uniform sampler2D uDepth;
 
 uniform samplerCube uPrefilterMap;
 uniform sampler2D uBRDFLut_ibl;
@@ -73,6 +75,75 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
   return F_add * F_ms;
 }
 
+vec2 GetScreenCoordinate(vec3 pos) {
+  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
+  vec2 uv = (screen_coor.xy / screen_coor.w) * 0.5 + 0.5;
+  return uv;
+}
+
+float GetDepth(vec3 pos) {
+  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
+  return screen_coor.z / screen_coor.w;
+}
+
+float VanDerCorput(uint bits) {
+  bits = (bits << 16u) | (bits >> 16u);
+  bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+  bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+  bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+  bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+  return float(bits) * 2.3283064365386963e-10;
+}
+
+vec2 Hammersley(uint i, uint N) {
+  return vec2(float(i) / float(N), VanDerCorput(i));
+}
+
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+  float a = roughness * roughness;
+
+  float phi = 2.0 * PI * Xi.x;
+  float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+  float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
+  vec3 H;
+  H.x = cos(phi) * sinTheta;
+  H.y = sin(phi) * sinTheta;
+  H.z = cosTheta;
+
+  vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 tangent = normalize(cross(up, N));
+  vec3 bitangent = cross(N, tangent);
+
+  vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+  return normalize(sampleVec);
+}
+
+bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
+  float step = 0.05;
+  const int total_step_times = 150;
+  int cur_times = 0;
+
+  vec3 dir_step = normalize(dir) * step;
+  vec3 cur_position = ori;
+
+  while (cur_times < 150) {
+    vec2 uv = GetScreenCoordinate(cur_position);
+    float ray_depth = GetDepth(cur_position);
+    float depth = texture(uDepth, uv).r;
+    if(depth < 0.001) depth = 10000;
+    if (ray_depth - depth > 0.0001) {
+      hit = cur_position;
+      return true;
+    }
+    cur_position += dir_step;
+    cur_times ++;
+  }
+
+  return false;
+}
+
+
 void main() {
   vec3 albedo = texture(uBasecolor, vTextureCoord).rgb;
   float alpha = texture(uBasecolor, vTextureCoord).a;
@@ -113,29 +184,65 @@ void main() {
   float denominator = max((4.0 * NdotL * NdotV), 0.001);
   vec3 Fmicro = numerator / denominator;
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
-  // vec3 BRDF = Fmicro + Fms + (kD * albedo / PI);
-  vec3 BRDF = Fms + Fmicro;
+  vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
+/*
+ *  when deffered rendering, use ssr to draw environment
+ *  vec3 R = reflect(-V, N);
+ *  const float MAX_LOD = 4.0;
+ *  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
+ *  vec2 env_brdf =
+ *      texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
+ *  float occlusion = texture(uRMO, vTextureCoord).b;
+ *  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
+*/
+
+/*
+ *  vec3 light_space = vShadowPos.xyz / vShadowPos.w;
+ *  light_space = light_space * 0.5 + 0.5;
+ *  float depth = texture(uShadowMap, light_space.xy).r;
+ *  float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
+ */
+
+  const uint SAMPLE_NUM = 1u;
   vec3 R = reflect(-V, N);
-  const float MAX_LOD = 4.0;
-  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
-  vec2 env_brdf =
-      texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
-  float occlusion = texture(uRMO, vTextureCoord).b;
-  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
+  vec3 Lo_dir = vec3(0.0);
+  for(uint i = 0u; i < SAMPLE_NUM; i++) {
+    vec2 Xi = Hammersley(i, SAMPLE_NUM);
+    vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
+    sample_vector = R;
+    float NdotSample = dot(N, sample_vector);
 
+    vec3 ssr_H = normalize(V + sample_vector);
 
+    float ssr_NDF = DistributionGGX(N, ssr_H, roughness);
+    float ssr_G = GeometrySmith(N, V, sample_vector, roughness);
+    vec3 ssr_F = FresnelSchlick(F0, V, ssr_H);
 
-//   vec3 light_space = vShadowPos.xyz / vShadowPos.w;
-//   light_space = light_space * 0.5 + 0.5;
-//   float depth = texture(uShadowMap, light_space.xy).r;
-//   float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
+    vec3 ssr_numerator = ssr_NDF * ssr_F * ssr_G;
+    float ssr_denominator = max((4.0 * NdotSample * NdotV), 0.001);
+    vec3 ssr_Fmicro = ssr_numerator / ssr_denominator;
+    vec3 ssr_Fms = MultiScatterBRDF(NdotSample, NdotV, roughness);
+    vec3 ssr_BRDF = ssr_Fms + ssr_Fmicro + (kD * albedo / PI);
 
-  Lo += radiance * BRDF * NdotL;
-  Lo += ibl;
+    vec3 hit;
+    // if (RayMarch(position, sample_vector, hit)) {
+    //   vec2 uv = GetScreenCoordinate(hit);
+    //   vec3 hit_albedo = texture(uBasecolor, uv).rgb;
+    //   vec3 hit_normal = texture(uNormal, uv).rgb;
+    //   float hit_roughness = texture(uRMO, uv).r;
+    //   float hit_metalness = texture(uRMO, uv).g;
+    //   vec3 hit_emission = texture(uEmission, uv).rgb;
+    // }else{
+    // }
+    Lo_dir += textureLod(uPrefilterMap, sample_vector, 0.1).rgb * NdotSample * ssr_BRDF;
+  }
+  Lo_dir /= SAMPLE_NUM;
+
+  // Lo += radiance * BRDF * NdotL;
+  Lo += Lo_dir;
   vec3 color = Lo;
-  color += texture(uEmission, vTextureCoord).rgb;
-
+  // color += texture(uEmission, vTextureCoord).rgb;
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
 

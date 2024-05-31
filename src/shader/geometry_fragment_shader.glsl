@@ -4,6 +4,7 @@ in vec3 vNormal;
 in vec3 vFragPos;
 in vec3 vTangent;
 in vec3 vBitangent;
+in vec4 vScreenPos;
 
 uniform int uEnableBump;
 uniform int uEnableOcclusion;
@@ -26,10 +27,12 @@ layout (location = 1) out vec3 g_normal;
 layout (location = 2) out vec4 g_basecolor;
 layout (location = 3) out vec3 g_rmo;
 layout (location = 4) out vec3 g_emission;
+layout (location = 5) out float g_depth;
 
 void main() {
     
   g_position = vFragPos;
+  g_depth = gl_FragCoord.z;
 
   vec3 N = normalize(vNormal);
   if (uEnableBump == 1) {

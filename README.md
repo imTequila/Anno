@@ -1,5 +1,6 @@
 - PBR
 - Kulla-Conty Approximation
 - IBL
-- Deffered Rendering
+- Deferred Rendering
 - Shadow Map
+- Screen Space Reflect

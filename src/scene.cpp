@@ -499,8 +499,6 @@ void scene_t::config_shadow_map() {
 }
 
 void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) {
-
-
   this->shadow_shader.use();
   this->shadow_shader.setMat4("uViewMatrix", light_view);
   this->shadow_shader.setMat4("uProjectionMatrix", light_projection);
@@ -512,7 +510,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
   
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(0.125f, 0.125f, 0.125f));
+    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
     model =
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],
@@ -541,11 +539,10 @@ void scene_t::draw_scene_forward(camera_t camera) {
   glm::mat4 projection =
       glm::perspective(glm::radians(camera.Zoom),
                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
-
-  glm::vec3 light_pos(-2.0f, 4.0f, 0.0f);
+  glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom),
-                        (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 3.0f, 10.0f);
+                        (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
   draw_shadow_map(light_view, light_projection);
 
   this->shader.use();
@@ -570,7 +567,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    // model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
     model =
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],
@@ -653,7 +650,7 @@ void scene_t::confing_deferred() {
 
   glGenTextures(1, &this->g_depth);
   glBindTexture(GL_TEXTURE_2D, this->g_depth);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -690,12 +687,34 @@ void scene_t::confing_deferred() {
   glBindVertexArray(0);
 }
 
+static void saveArrayToTextFile(const std::string& filename, const float* array, size_t size) {
+    std::ofstream outFile(filename);
+    if (!outFile) {
+        std::cerr << "Failed to open file for writing: " << filename << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < size; ++i) {
+        outFile << array[i] << "\n";
+    }
+
+    outFile.close();
+    if (!outFile.good()) {
+        std::cerr << "Error occurred while writing to file: " << filename << std::endl;
+    }
+}
+
 void scene_t::draw_scene_deferred(camera_t camera) {
   glm::mat4 view = camera.GetViewMatrix();
   glm::mat4 projection =
       glm::perspective(glm::radians(camera.Zoom),
                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
-  glm::vec3 light_pos(-2.0f, 4.0f, 0.0f);
+  glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
+  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom),
+                        (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+  draw_shadow_map(light_view, light_projection);
+  
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);

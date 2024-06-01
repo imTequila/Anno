@@ -809,5 +809,5 @@ models 34:
         mesh: common/ground.obj
         skeleton: null
         attached: -1
-        material: 0
+        material: 10
         transform: 33

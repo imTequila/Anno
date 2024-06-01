@@ -4,7 +4,7 @@ in vec3 vNormal;
 in vec3 vFragPos;
 in vec3 vTangent;
 in vec3 vBitangent;
-in vec4 vScreenPos;
+in float vDepth;
 
 uniform int uEnableBump;
 uniform int uEnableOcclusion;
@@ -32,7 +32,7 @@ layout (location = 5) out float g_depth;
 void main() {
     
   g_position = vFragPos;
-  g_depth = gl_FragCoord.z;
+  g_depth = vDepth;
 
   vec3 N = normalize(vNormal);
   if (uEnableBump == 1) {

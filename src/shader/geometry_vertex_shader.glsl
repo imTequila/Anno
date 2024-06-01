@@ -12,6 +12,7 @@ out vec3 vNormal;
 out vec3 vFragPos;
 out vec3 vTangent;
 out vec3 vBitangent;
+out float vDepth;
 
 
 void main() {
@@ -23,5 +24,6 @@ void main() {
 
   gl_Position =
       uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+  vDepth = gl_Position.w;
 
 }

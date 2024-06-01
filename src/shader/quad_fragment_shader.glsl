@@ -120,19 +120,22 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  float step = 0.05;
-  const int total_step_times = 150;
+  float step = 0.005;
+  const int total_step_times = 300;
   int cur_times = 0;
 
   vec3 dir_step = normalize(dir) * step;
   vec3 cur_position = ori;
 
-  while (cur_times < 150) {
+  while (cur_times < total_step_times) {
     vec2 uv = GetScreenCoordinate(cur_position);
+    if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
+      return false;
+    }
     float ray_depth = GetDepth(cur_position);
     float depth = texture(uDepth, uv).r;
-    if(depth < 0.001) depth = 10000;
-    if (ray_depth - depth > 0.0001) {
+    if(depth < 0.000001) depth = 10000;
+    if (ray_depth > depth + 0.0001) {
       hit = cur_position;
       return true;
     }
@@ -170,7 +173,7 @@ void main() {
 
   vec3 radiance = vec3(1.0f, 1.0f, 1.0f);
 
-  float roughness = texture(uRMO, vTextureCoord).r;
+  float roughness =clamp(texture(uRMO, vTextureCoord).r, 0.05, 0.995);
 
   float NDF = DistributionGGX(N, H, roughness);
   float G = GeometrySmith(N, V, L, roughness);
@@ -186,16 +189,16 @@ void main() {
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
   vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
-/*
- *  when deffered rendering, use ssr to draw environment
- *  vec3 R = reflect(-V, N);
- *  const float MAX_LOD = 4.0;
- *  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
- *  vec2 env_brdf =
- *      texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
- *  float occlusion = texture(uRMO, vTextureCoord).b;
- *  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
-*/
+
+
+  vec3 R = reflect(-V, N);
+  const float MAX_LOD = 4.0;
+  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
+  vec2 env_brdf =
+      texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
+  float occlusion = texture(uRMO, vTextureCoord).b;
+  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
+
 
 /*
  *  vec3 light_space = vShadowPos.xyz / vShadowPos.w;
@@ -204,47 +207,60 @@ void main() {
  *  float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
  */
 
-  const uint SAMPLE_NUM = 1u;
-  vec3 R = reflect(-V, N);
+  const uint SAMPLE_NUM = 4u;
   vec3 Lo_dir = vec3(0.0);
+  uint total = 0u;
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
     vec2 Xi = Hammersley(i, SAMPLE_NUM);
     vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
-    sample_vector = R;
     float NdotSample = dot(N, sample_vector);
-
-    vec3 ssr_H = normalize(V + sample_vector);
-
-    float ssr_NDF = DistributionGGX(N, ssr_H, roughness);
-    float ssr_G = GeometrySmith(N, V, sample_vector, roughness);
-    vec3 ssr_F = FresnelSchlick(F0, V, ssr_H);
-
-    vec3 ssr_numerator = ssr_NDF * ssr_F * ssr_G;
-    float ssr_denominator = max((4.0 * NdotSample * NdotV), 0.001);
-    vec3 ssr_Fmicro = ssr_numerator / ssr_denominator;
-    vec3 ssr_Fms = MultiScatterBRDF(NdotSample, NdotV, roughness);
-    vec3 ssr_BRDF = ssr_Fms + ssr_Fmicro + (kD * albedo / PI);
-
     vec3 hit;
-    // if (RayMarch(position, sample_vector, hit)) {
-    //   vec2 uv = GetScreenCoordinate(hit);
-    //   vec3 hit_albedo = texture(uBasecolor, uv).rgb;
-    //   vec3 hit_normal = texture(uNormal, uv).rgb;
-    //   float hit_roughness = texture(uRMO, uv).r;
-    //   float hit_metalness = texture(uRMO, uv).g;
-    //   vec3 hit_emission = texture(uEmission, uv).rgb;
-    // }else{
-    // }
-    Lo_dir += textureLod(uPrefilterMap, sample_vector, 0.1).rgb * NdotSample * ssr_BRDF;
+    if (RayMarch(position, sample_vector, hit)) {
+      vec2 uv = GetScreenCoordinate(hit);
+      if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
+        continue;
+      }
+      vec3 hit_albedo = texture(uBasecolor, uv).rgb;
+      vec3 hit_normal = texture(uNormal, uv).rgb;
+      float hit_roughness = texture(uRMO, uv).r;
+      float hit_metallic = texture(uRMO, uv).g;
+      vec3 hit_emission = texture(uEmission, uv).rgb;
+      vec3 hit_light = normalize(uLightPos - hit);
+      vec3 hit_view = normalize(position - hit);
+      vec3 hit_half = normalize(hit_light + hit_view);
+
+      float hit_NdotL = dot(hit_normal, hit_light);
+      float hit_NdotV = dot(hit_normal, hit_view);
+
+      vec3 hit_F0 = vec3(0.04);
+      hit_F0 = mix(hit_F0, hit_albedo, hit_metallic);
+      float hit_NDF = DistributionGGX(hit_normal, hit_half, hit_roughness);
+      float hit_G = GeometrySmith(hit_normal, hit_view, hit_light, hit_roughness);
+      vec3 hit_F = FresnelSchlick(hit_F0, hit_view, hit_half);
+
+      vec3 hit_kS = hit_F;
+      vec3 hit_kD = vec3(1.0) - hit_kS;
+      hit_kD *= (1.0 - hit_metallic);
+
+      vec3 hit_numerator = hit_NDF * hit_F * hit_G;
+      float hit_denominator = max((4.0 * hit_NdotL * hit_NdotV), 0.001);
+      vec3 hit_Fmicro = hit_numerator / hit_denominator;
+      vec3 hit_BRDF = hit_Fmicro + (hit_kD * hit_albedo / PI);
+
+      Lo_dir += radiance;
+      total ++;
+    }
   }
   Lo_dir /= SAMPLE_NUM;
 
-  // Lo += radiance * BRDF * NdotL;
-  Lo += Lo_dir;
+  vec3 ssr = Lo_dir * (F * env_brdf.x + env_brdf.y);
+
+  Lo += radiance * BRDF * NdotL;
+  Lo += ssr;
+  Lo += (ibl * (SAMPLE_NUM - total) / SAMPLE_NUM);
   vec3 color = Lo;
-  // color += texture(uEmission, vTextureCoord).rgb;
+  color += texture(uEmission, vTextureCoord).rgb;
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
-
   FragColor = vec4(color, 1.0);
 }

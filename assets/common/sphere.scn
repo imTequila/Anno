@@ -3,11 +3,24 @@ type: pbrm
 lighting:
     environment: spruit
 
-materials 1:
+materials 2:
     material 0:
-        basecolor_factor: 1 0 0 1
-        metalness_factor: 0.8
-        roughness_factor: 0.9
+        basecolor_factor: 1 1 1 1
+        metalness_factor: 1
+        roughness_factor: 0.1
+        basecolor_map: null
+        metalness_map: null
+        roughness_map: null
+        normal_map: null
+        occlusion_map: null
+        emission_map: null
+        double_sided: off
+        enable_blend: off
+        alpha_cutoff: 0
+    material 1:
+        basecolor_factor: 1 1 1 1
+        metalness_factor: 1
+        roughness_factor: 0.1
         basecolor_map: null
         metalness_map: null
         roughness_map: null
@@ -18,17 +31,28 @@ materials 1:
         enable_blend: off
         alpha_cutoff: 0
 
-transforms 1:
+transforms 2:
     transform 0:
         1  0  0  0
-        0  1  0  0
+        0  1  0  0.5
         0  0  1  0
         0  0  0  1
+    transform 2:
+        1  0  0  -5
+        0  1  0  0
+        0  0  1  -1
+        0  0  0  1
 
-models 1:
+models 2:
     model 0:
-        mesh: common/sphere.obj
+        mesh: common/box.obj
         skeleton: null
         attached: -1
         material: 0
         transform: 0
+    model 1:
+        mesh: common/ground.obj
+        skeleton: null
+        attached: -1
+        material: 1
+        transform: 1

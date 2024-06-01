@@ -104,7 +104,7 @@ int main() {
   glEnable(GL_DEPTH_TEST);
 
   /* prepare data  */
-  scene_t scene("../assets/helmet/helmet.scn");
+  scene_t scene("../assets/common/sphere.scn");
 
   
   /*  render  */

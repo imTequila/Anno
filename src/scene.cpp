@@ -511,6 +511,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
     model =
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],
@@ -567,7 +568,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    // model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
     model =
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],
@@ -731,7 +732,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    // model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
     model =
         glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                         this->models[i]->transform[1][3],

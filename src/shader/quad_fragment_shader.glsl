@@ -154,9 +154,9 @@ void main() {
 
   vec3 albedo = texture(uBasecolor, vTextureCoord).rgb;
   float alpha = texture(uBasecolor, vTextureCoord).a;
-  // if (alpha < 0.1) {
-  //   discard;
-  // }
+  if (alpha < 0.1) {
+    discard;
+  }
 
   vec3 N = texture(uNormal, vTextureCoord).rgb;
 
@@ -261,8 +261,6 @@ void main() {
   Lo += (ibl * (SAMPLE_NUM - total) / SAMPLE_NUM);
   vec3 color = Lo;
   color += texture(uEmission, vTextureCoord).rgb;
-
-  color = vec3(texture(uShadowMap, vTextureCoord).r);
 
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));

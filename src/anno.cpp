@@ -104,7 +104,7 @@ int main() {
   glEnable(GL_DEPTH_TEST);
 
   /* prepare data  */
-  scene_t scene("../assets/common/spheres.scn");
+  scene_t scene("../assets/helmet/helmet.scn");
 
   
   /*  render  */
@@ -117,7 +117,7 @@ int main() {
     processInput(window);
 
     scene.draw_skybox(camera);
-    scene.draw_scene_forward(camera);
+    scene.draw_scene_deferred(camera);
 
     glfwSwapBuffers(window);
     glfwPollEvents();

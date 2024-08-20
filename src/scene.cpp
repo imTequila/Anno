@@ -54,9 +54,13 @@ scene_t::scene_t(std::string filename) {
                     "../src/shader/geometry_fragment_shader.glsl");
   this->geometry_shader = shader_t2;
 
-  shader_t shader_t3("../src/shader/quad_vertex_shader.glsl",
-                       "../src/shader/quad_fragment_shader.glsl");
+  shader_t shader_t3("../src/shader/shading_vertex_shader.glsl",
+                       "../src/shader/shading_fragment_shader.glsl");
   this->quad_shader = shader_t3;
+
+  shader_t shader_t4("../src/shader/post_processing_vertex_shader.glsl",
+                       "../src/shader/post_processing_fragment_shader.glsl");
+  this->post_shader = shader_t4;
 
   config_skybox();
   config_kulla_conty();
@@ -313,9 +317,8 @@ void scene_t::draw_skybox(camera_t camera) {
 
   glm::mat4 view = camera.GetViewMatrix();
   glm::mat4 skybox_view = glm::mat4(glm::mat3(view));
-  glm::mat4 skybox_projection =
-      glm::perspective(glm::radians(camera.Zoom),
-                        (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  glm::mat4 skybox_projection = glm::perspective(glm::radians(camera.Zoom),
+                                                (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
   this->skybox_shader.use();
   this->skybox_shader.setInt("uSkyboxMap", 0);
   this->skybox_shader.setMat4("uProjectionMatrix", skybox_projection);
@@ -371,8 +374,7 @@ void scene_t::config_ibl() {
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                             GL_RENDERBUFFER, this->ibl_rbo);
 
-  glm::mat4 projection =
-      glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+  glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
   glm::mat4 views[] = {
       glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
                   glm::vec3(0.0f, -1.0f, 0.0f)),
@@ -499,23 +501,22 @@ void scene_t::config_shadow_map() {
 }
 
 void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) {
+  glBindFramebuffer(GL_FRAMEBUFFER, this->shadow_fbo);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->shadow_map, 0);
+
   this->shadow_shader.use();
   this->shadow_shader.setMat4("uViewMatrix", light_view);
   this->shadow_shader.setMat4("uProjectionMatrix", light_projection);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, this->shadow_fbo);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->shadow_map, 0);
-  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-  glClear(GL_DEPTH_BUFFER_BIT);
   
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
     model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
-    model =
-        glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                        this->models[i]->transform[1][3],
-                                        this->models[i]->transform[2][3]));
+    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
+                                            this->models[i]->transform[1][3],
+                                            this->models[i]->transform[2][3]));
     
     this->shadow_shader.setMat4("uModelMatrix", model);
     this->models[i]->draw();
@@ -524,7 +525,6 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
 }
 
 void scene_t::draw_scene_forward(camera_t camera) {
-  
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_2D, this->e_lut);
   glActiveTexture(GL_TEXTURE7);
@@ -537,14 +537,19 @@ void scene_t::draw_scene_forward(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
 
   glm::mat4 view = camera.GetViewMatrix();
-  glm::mat4 projection =
-      glm::perspective(glm::radians(camera.Zoom),
-                        (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
+  glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
+                                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
+
   glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom),
-                        (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+                                               (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+
   draw_shadow_map(light_view, light_projection);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
   this->shader.use();
   this->shader.setMat4("uViewMatrix", view);
@@ -564,22 +569,19 @@ void scene_t::draw_scene_forward(camera_t camera) {
   this->shader.setInt("uPrefilterMap", 8);
   this->shader.setInt("uBRDFLut_ibl", 9);
   this->shader.setInt("uShadowMap", 10);
-  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
     model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
-    model =
-        glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                        this->models[i]->transform[1][3],
-                                        this->models[i]->transform[2][3]));
+    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
+                                            this->models[i]->transform[1][3],
+                                            this->models[i]->transform[2][3]));
 
     this->shader.setMat4("uModelMatrix", model);
     this->shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
-    this->shader.setFloat("uMetalness",
-                    this->models[i]->material->metalness_factor);
-    this->shader.setFloat("uRoughness",
-                    this->models[i]->material->roughness_factor);
+    this->shader.setFloat("uMetalness", this->models[i]->material->metalness_factor);
+    this->shader.setFloat("uRoughness", this->models[i]->material->roughness_factor);
 
     if (this->models[i]->normal_map < 0xfff) {
       this->shader.setInt("uEnableBump", 1);
@@ -631,6 +633,7 @@ void scene_t::confing_deferred() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, this->g_basecolor, 0);
   
+  // roughness, metallic, occusion
   glGenTextures(1, &this->g_rmo);
   glBindTexture(GL_TEXTURE_2D, this->g_rmo);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
@@ -666,6 +669,30 @@ void scene_t::confing_deferred() {
   unsigned int attachments[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
   glDrawBuffers(6, attachments);
 
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glGenFramebuffers(1, &this->shading_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);
+
+  glGenTextures(1, &this->color_buffer);
+  glBindTexture(GL_TEXTURE_2D, this->color_buffer);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, this->color_buffer, 0);
+
+  glGenRenderbuffers(1, &shading_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, shading_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, shading_rbo);
+
+  attachments[0] = GL_COLOR_ATTACHMENT6;
+  glDrawBuffers(1, attachments);
+  
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -707,15 +734,20 @@ static void saveArrayToTextFile(const std::string& filename, const float* array,
 
 void scene_t::draw_scene_deferred(camera_t camera) {
   glm::mat4 view = camera.GetViewMatrix();
-  glm::mat4 projection =
-      glm::perspective(glm::radians(camera.Zoom),
-                        (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
+  glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
+                                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
+
   glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom),
-                        (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+  glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
+                                               (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+
   draw_shadow_map(light_view, light_projection);
   
+  glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
@@ -726,24 +758,18 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->geometry_shader.setInt("uOcclusionMap", 4);
   this->geometry_shader.setInt("uEmissionMap", 5);
 
-  glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
     model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
-    model =
-        glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                        this->models[i]->transform[1][3],
-                                        this->models[i]->transform[2][3]));
+    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
+                                            this->models[i]->transform[1][3],
+                                            this->models[i]->transform[2][3]));
 
     this->geometry_shader.setMat4("uModelMatrix", model);
     this->geometry_shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
-    this->geometry_shader.setFloat("uMetalness",
-                    this->models[i]->material->metalness_factor);
-    this->geometry_shader.setFloat("uRoughness",
-                    this->models[i]->material->roughness_factor);
+    this->geometry_shader.setFloat("uMetalness", this->models[i]->material->metalness_factor);
+    this->geometry_shader.setFloat("uRoughness", this->models[i]->material->roughness_factor);
 
     if (this->models[i]->normal_map < 0xfff) {
       this->geometry_shader.setInt("uEnableBump", 1);
@@ -764,6 +790,11 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  /* shading pass */
+  glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, this->g_position);
@@ -809,4 +840,22 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  /* post processing pass */
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, this->color_buffer);
+  
+  this->post_shader.use();
+  this->post_shader.setInt("uShadingColor", 0);
+
+  glBindVertexArray(this->quad_vao);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  
+
 }

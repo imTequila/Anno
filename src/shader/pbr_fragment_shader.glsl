@@ -165,11 +165,13 @@ void main() {
   }
   vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
 
+/*
   vec3 light_space = vShadowPos.xyz / vShadowPos.w * 0.5 + 0.5;
   float depth = texture(uShadowMap, light_space.xy).r;
   float shadow = depth < light_space.z - 0.001? 0.0 : 1.0;
+*/
 
-  Lo += radiance * BRDF * NdotL * shadow;
+  Lo += radiance * BRDF * NdotL;
   Lo += ibl;
   vec3 color = Lo;
   if (uEnableEmission == 1) {

@@ -324,10 +324,18 @@ void scene_t::draw_skybox(camera_t camera) {
   this->skybox_shader.setMat4("uProjectionMatrix", skybox_projection);
   this->skybox_shader.setMat4("uViewMatrix", skybox_view);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glEnable(GL_STENCIL_TEST);
+  glStencilMask(0xff);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+
+  glDepthFunc(GL_ALWAYS);
   glDepthMask(GL_FALSE);
   glBindVertexArray(this->skybox_vao);
   glDrawArrays(GL_TRIANGLES, 0, 36);
   glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LESS);
 }
 
 void scene_t::config_kulla_conty() {
@@ -663,8 +671,8 @@ void scene_t::confing_deferred() {
 
   glGenRenderbuffers(1, &geometry_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, geometry_rbo);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, geometry_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, geometry_rbo);
 
   unsigned int attachments[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
   glDrawBuffers(6, attachments);
@@ -745,9 +753,14 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   draw_shadow_map(light_view, light_projection);
   
   glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+  glEnable(GL_STENCIL_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0xFF);
 
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+  
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
@@ -788,7 +801,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
     }
     this->models[i]->draw();
   }
-
+  glStencilMask(0x00);
+  glDisable(GL_STENCIL_TEST);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   /* shading pass */
@@ -843,8 +857,16 @@ void scene_t::draw_scene_deferred(camera_t camera) {
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, this->geometry_fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+
   /* post processing pass */
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glEnable(GL_STENCIL_TEST);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  glStencilFunc(GL_ALWAYS, 1, 0xFF);
+  glStencilMask(0x00);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 

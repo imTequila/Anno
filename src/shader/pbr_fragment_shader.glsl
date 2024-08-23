@@ -65,6 +65,11 @@ vec3 FresnelSchlick(vec3 F0, vec3 V, vec3 H) {
   return F0 + (1.0 - F0) * pow(clamp(1.0 - max(dot(H, V), 0.0), 0.0, 1.0), 5.0);
 }
 
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+} 
+
 vec3 AverageFresnel(vec3 r, vec3 g) {
   return vec3(0.087237) + 0.0230685 * g - 0.0864902 * g * g +
          0.0774594 * g * g * g + 0.782654 * r - 0.136432 * r * r +
@@ -152,7 +157,7 @@ void main() {
   float denominator = max((4.0 * NdotL * NdotV), 0.001);
   vec3 Fmicro = numerator / denominator;
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
-  vec3 BRDF = Fms + Fmicro;
+  vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
   vec3 R = reflect(-V, N);
   const float MAX_LOD = 4.0;
@@ -163,7 +168,8 @@ void main() {
   if (uEnableOcclusion == 1) {
     occlusion = texture(uOcclusionMap, vTextureCoord).r;
   }
-  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
+  vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+  vec3 ibl = prefilter_color * (F_ibl * env_brdf.x + env_brdf.y) * occlusion;
 
 /*
   vec3 light_space = vShadowPos.xyz / vShadowPos.w * 0.5 + 0.5;
@@ -175,7 +181,7 @@ void main() {
   Lo += ibl;
   vec3 color = Lo;
   if (uEnableEmission == 1) {
-    color += texture(uEmissionMap, vTextureCoord).rgb;
+    color += pow(texture(uEmissionMap, vTextureCoord).rgb,vec3(2.2));
   }
 
   color = color / (color + vec3(1.0));

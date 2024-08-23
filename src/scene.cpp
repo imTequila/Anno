@@ -19,7 +19,7 @@ scene_t::scene_t(std::string filename) {
   char scene_type[LINE_SIZE];
   FILE *file;
   file = fopen(filename.c_str(), "rb");
-  assert(file != NULL);
+  assert(file != nullptr);
 
   int items = fscanf(file, " type: %s", scene_type);
   assert(items == 1);
@@ -238,7 +238,7 @@ void scene_t::config_skybox() {
   for (unsigned int i = 0; i < textures_faces.size(); i++) {
     data =
         stbi_loadf(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, width, height,
                  0, GL_RGB, GL_FLOAT, data);
   }
 
@@ -400,7 +400,7 @@ void scene_t::config_ibl() {
   glGenTextures(1, &this->prefilter_map);
   glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
   for (unsigned int i = 0; i < 6; ++i) {
-    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, 512, 512, 0,
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0,
                  GL_RGB, GL_FLOAT, nullptr);
   }
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -521,7 +521,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                             this->models[i]->transform[1][3],
                                             this->models[i]->transform[2][3]));
@@ -554,6 +554,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
 
   draw_shadow_map(light_view, light_projection);
+  draw_skybox(camera);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -581,7 +582,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                             this->models[i]->transform[1][3],
                                             this->models[i]->transform[2][3]));
@@ -686,7 +687,7 @@ void scene_t::confing_deferred() {
 
   glGenTextures(1, &this->color_buffer);
   glBindTexture(GL_TEXTURE_2D, this->color_buffer);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -697,10 +698,10 @@ void scene_t::confing_deferred() {
   glBindRenderbuffer(GL_RENDERBUFFER, shading_rbo);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, shading_rbo);
-
+  
   attachments[0] = GL_COLOR_ATTACHMENT6;
   glDrawBuffers(1, attachments);
-  
+
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -774,7 +775,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   for (int i = 0; i < this->models.size(); i++) {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, PI / 2, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
                                             this->models[i]->transform[1][3],
                                             this->models[i]->transform[2][3]));
@@ -840,16 +841,16 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->quad_shader.setMat4("uProjectionMatrix", projection);
   this->quad_shader.setVec3("uCameraPos", camera.Position);
   this->quad_shader.setVec3("uLightPos", light_pos);
-  this->quad_shader.setInt("uPosition", 0);
-  this->quad_shader.setInt("uNormal", 1);
-  this->quad_shader.setInt("uBasecolor", 2);
-  this->quad_shader.setInt("uRMO", 3);
+  this->quad_shader.setInt("uPosition", 0);         /* needed in post processing */
+  this->quad_shader.setInt("uNormal", 1);           /* needed in post processing */
+  this->quad_shader.setInt("uBasecolor", 2);        /* needed in post processing */
+  this->quad_shader.setInt("uRMO", 3);              /* needed in post processing */
   this->quad_shader.setInt("uEmission", 4);
-  this->quad_shader.setInt("uDepth", 5);
+  this->quad_shader.setInt("uDepth", 5);            /* needed in post processing */
   this->quad_shader.setInt("uBRDFLut", 6);
   this->quad_shader.setInt("uEavgLut", 7);
   this->quad_shader.setInt("uPrefilterMap", 8);
-  this->quad_shader.setInt("uBRDFLut_ibl", 9);
+  this->quad_shader.setInt("uBRDFLut_ibl", 9);      /* needed in post processing */
   this->quad_shader.setInt("uShadowMap", 10);
   
   glBindVertexArray(this->quad_vao);
@@ -870,12 +871,35 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
-  glActiveTexture(GL_TEXTURE0);
+  glActiveTexture(GL_TEXTURE11);
   glBindTexture(GL_TEXTURE_2D, this->color_buffer);
-  
-  this->post_shader.use();
-  this->post_shader.setInt("uShadingColor", 0);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, this->g_position);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, this->g_normal);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, this->g_basecolor);
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, this->g_rmo);
+  glActiveTexture(GL_TEXTURE4);
+  glBindTexture(GL_TEXTURE_2D, this->g_depth);
+  glActiveTexture(GL_TEXTURE5);
+  glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
 
+
+
+  this->post_shader.use();
+  this->post_shader.setInt("uShadingColor", 11);
+  this->post_shader.setInt("uPosition", 0);
+  this->post_shader.setInt("uNormal", 1);
+  this->post_shader.setInt("uBaseColor", 2);
+  this->post_shader.setInt("uRMO", 3);
+  this->post_shader.setInt("uDepth", 4);
+  this->post_shader.setInt("uBRDFLut_ibl", 5);
+
+  this->post_shader.setMat4("uViewMatrix", view);
+  this->post_shader.setMat4("uProjectionMatrix", projection);
+  this->post_shader.setVec3("uCameraPos", camera.Position);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   

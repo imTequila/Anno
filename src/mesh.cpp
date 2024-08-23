@@ -81,7 +81,7 @@ static mesh_t *load_obj(std::string filename) {
   FILE *file;
 
   file = fopen(filename.c_str(), "rb");
-  assert(file != NULL);
+  assert(file != nullptr);
   while (1) {
     int items;
     if (fgets(line, 256, file) == NULL) {

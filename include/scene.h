@@ -42,9 +42,11 @@ public:
   unsigned int geometry_fbo;
   unsigned int geometry_rbo;
   unsigned int g_position, g_normal, g_basecolor, g_rmo, g_emission, g_depth;
+
   unsigned int shading_fbo;
   unsigned int shading_rbo;
   unsigned int color_buffer;
+
   unsigned int quad_vao;
   unsigned int quad_vbo;
 

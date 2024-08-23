@@ -67,11 +67,11 @@ void main() {
 
     float NdotL = max(dot(N, L), 0.0);
     if (NdotL > 0.0) {
-      prefilteredColor += texture(uEnvironmentMap, L).rgb * NdotL;
+      vec3 sampleColor = texture(uEnvironmentMap, L).rgb;
+      prefilteredColor += sampleColor * NdotL;
       totalWeight += NdotL;
     }
   }
   prefilteredColor = prefilteredColor / totalWeight;
-
   FragColor = vec4(prefilteredColor, 1.0);
 }

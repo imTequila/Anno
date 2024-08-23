@@ -104,7 +104,7 @@ int main() {
   glEnable(GL_DEPTH_TEST);
 
   /* prepare data  */
-  scene_t scene("../assets/helmet/helmet.scn");
+  scene_t scene("../assets/common/cube.scn");
 
   /*  render  */
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
@@ -116,6 +116,7 @@ int main() {
     processInput(window);
 
     scene.draw_scene_deferred(camera);
+
     scene.draw_skybox(camera);
 
     glfwSwapBuffers(window);

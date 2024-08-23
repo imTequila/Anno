@@ -75,7 +75,7 @@ void main() {
   g_rmo.b = occlusion;
 
   if (uEnableEmission == 1) {
-    g_emission = texture(uEmissionMap, vTextureCoord).rgb;
+    g_emission = pow(texture(uEmissionMap, vTextureCoord).rgb, vec3(2.2));
   }else {
     g_emission = vec3(0.0);
   }

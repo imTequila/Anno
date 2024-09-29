@@ -93,8 +93,52 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
   return false;
 }
 
+/** Unreal Implement */
+float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScreen)
+{
+	// Computes the scale down factor for RayStepScreen required to fit on the X and Y axis in order to clip it in the viewport
+  float Length = sqrt(RayStepScreen.x * RayStepScreen.x + RayStepScreen.y * RayStepScreen.y);
+	float RayStepScreenInvFactor = 0.5 * Length;
+	vec2 S = 1 - max(abs(RayStepScreen + RayStartScreen * RayStepScreenInvFactor) - RayStepScreenInvFactor, 0.0f) / abs(RayStepScreen);
+
+	// Rescales RayStepScreen accordingly
+	float RayStepFactor = min(S.x, S.y) / RayStepScreenInvFactor;
+
+	return RayStepFactor;
+}
+
+bool RayMarchByUV(vec2 ori, vec2 dir, float oriZ, float deltaZ, out vec2 hit) {
+  const int total_step_times = 500;
+  
+  float fractor = abs(GetStepScreenFactorToClipAtScreenEdge(ori, dir));
+  vec2 sample_vector = dir * fractor;
+  vec2 each_step = sample_vector / total_step_times;
+  
+  deltaZ *= fractor;
+  deltaZ /= total_step_times;
+
+  int cur_times = 1;
+  while (cur_times < total_step_times) {
+    vec2 uv = ori + (each_step * cur_times);
+    if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
+      return false;
+    }
+
+    float ray_depth    = oriZ + (deltaZ * cur_times);
+    float screen_depth = texture(uDepth, uv).r;
+    if(screen_depth < 0.000001) screen_depth = 10000;
+
+    if (ray_depth - screen_depth > 0.01) {
+      hit = uv;
+      return true;
+    }
+    cur_times ++;
+  }
+}
+
 void main() {
   vec3 position = texture2D(uPosition, vTextureCoord).rgb;
+  vec4 NDCPosition = vWorldToScreen * vec4(position, 1.0);
   vec3 N = texture2D(uNormal, vTextureCoord).rgb;
   vec3 V = normalize(uCameraPos - position);
 
@@ -116,10 +160,15 @@ void main() {
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
     vec2 Xi = Hammersley(i, SAMPLE_NUM);
     vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
+    vec3 sample_end_position = position + sample_vector;
+
+    vec2 uv_ori = GetScreenCoordinate(position);
+    vec2 uv_dir = GetScreenCoordinate(sample_end_position) - uv_ori;
+
     float NdotSample = dot(N, sample_vector);
-    vec3 hit;
-    if (RayMarch(position, sample_vector, hit)) {
-      vec2 uv = GetScreenCoordinate(hit);
+    vec2 hit;
+    if (RayMarchByUV(uv_ori, uv_dir, NDCPosition.w, sample_vector.z, hit)) {
+      vec2 uv = hit;
       vec3 hitColor = texture2D(uShadingColor, uv).rgb;
 
       Lo_indir += hitColor;

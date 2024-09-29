@@ -741,7 +741,7 @@ static void saveArrayToTextFile(const std::string& filename, const float* array,
 void scene_t::draw_scene_deferred(camera_t camera) {
   glm::mat4 view = camera.GetViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
-                                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
+                                         (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
   glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));

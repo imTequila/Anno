@@ -66,7 +66,7 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
-std::string opengl_errno_name(int err) {
+std::string opengl_error_name(int err) {
 	switch (err) {
 #define PER_GL_ERROR(x) case GL_##x: return #x;
 		PER_GL_ERROR(NO_ERROR)
@@ -112,11 +112,9 @@ int main() {
     float currentFrame = static_cast<float>(glfwGetTime());
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     processInput(window);
 
     scene.draw_scene_deferred(camera);
-
     scene.draw_skybox(camera);
 
     glfwSwapBuffers(window);

@@ -19,7 +19,7 @@ uniform sampler2D uBRDFLut_ibl;
 uniform sampler2D uBRDFLut;
 uniform sampler2D uEavgLut;
 
-layout (location = 0) out vec4 shading_color;
+out vec4 FragColor;
 
 const float PI = 3.14159265359;
 
@@ -266,5 +266,5 @@ void main() {
   vec3 color = Lo;
   color += texture(uEmission, vTextureCoord).rgb;
 
-  shading_color = vec4(color, 1.0);
+  FragColor = vec4(color, 1.0);
 }

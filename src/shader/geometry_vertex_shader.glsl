@@ -24,6 +24,6 @@ void main() {
 
   gl_Position =
       uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
-  vDepth = gl_Position.w;
+  vDepth = gl_Position.z / gl_Position.w;
 
 }

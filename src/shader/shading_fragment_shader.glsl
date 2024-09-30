@@ -125,35 +125,6 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
   return normalize(sampleVec);
 }
 
-bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  float step = 0.05;
-  const int total_step_times = 1000;
-  int cur_times = 0;
-
-  vec3 dir_step = normalize(dir) * step;
-  vec3 cur_position = ori;
-
-  while (cur_times < total_step_times) {
-    vec2 uv = GetScreenCoordinate(cur_position);
-    if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
-      return false;
-    }
-    float ray_depth = GetDepth(cur_position);
-    float depth = texture(uDepth, uv).r;
-    if(depth < 0.000001) depth = 10000;
-
-    if (ray_depth - depth > 0.01) {
-      hit = cur_position;
-      return true;
-    }
-    cur_position += dir_step;
-    cur_times ++;
-  }
-
-  return false;
-}
-
-
 void main() {
   vec3 position = texture(uPosition, vTextureCoord).rgb;
 
@@ -206,60 +177,6 @@ void main() {
   float occlusion = texture(uRMO, vTextureCoord).b;
   vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
   vec3 ibl = prefilter_color * (F_ibl * env_brdf.x + env_brdf.y) * occlusion;
-
-
-/*  TODO: Shadow Map with Cascade + bias + PCF
-  vec3 light_space = vShadowPos.xyz / vShadowPos.w;
-  light_space = light_space * 0.5 + 0.5;
-  float depth = texture(uShadowMap, light_space.xy).r;
-  float shadow = depth < light_space.z - 0.009? 0.0 : 1.0;
-*/
- 
-/*  TODO: move SSR compute to post processing
-  const uint SAMPLE_NUM = 8u;
-  vec3 Lo_indir = vec3(0.0);
-  uint total = 0u;
-  for(uint i = 0u; i < SAMPLE_NUM; i++) {
-    vec2 Xi = Hammersley(i, SAMPLE_NUM);
-    vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
-    float NdotSample = dot(N, sample_vector);
-    vec3 hit;
-    if (RayMarch(position, sample_vector, hit)) {
-      vec2 uv = GetScreenCoordinate(hit);
-      vec3 hit_albedo = texture(uBasecolor, uv).rgb;
-      vec3 hit_normal = texture(uNormal, uv).rgb;
-      float hit_roughness = texture(uRMO, uv).r;
-      float hit_metallic = texture(uRMO, uv).g;
-      vec3 hit_emission = texture(uEmission, uv).rgb;
-      vec3 hit_light = normalize(uLightPos - hit);
-      vec3 hit_view = normalize(position - hit);
-      vec3 hit_half = normalize(hit_light + hit_view);
-
-      float hit_NdotL = dot(hit_normal, hit_light);
-      float hit_NdotV = dot(hit_normal, hit_view);
-
-      vec3 hit_F0 = vec3(0.04);
-      hit_F0 = mix(hit_F0, hit_albedo, hit_metallic);
-      float hit_NDF = DistributionGGX(hit_normal, hit_half, hit_roughness);
-      float hit_G = GeometrySmith(hit_normal, hit_view, hit_light, hit_roughness);
-      vec3 hit_F = FresnelSchlick(hit_F0, hit_view, hit_half);
-
-      vec3 hit_kS = hit_F;
-      vec3 hit_kD = vec3(1.0) - hit_kS;
-      hit_kD *= (1.0 - hit_metallic);
-
-      vec3 hit_numerator = hit_NDF * hit_F * hit_G;
-      float hit_denominator = max((4.0 * hit_NdotL * hit_NdotV), 0.001);
-      vec3 hit_Fmicro = hit_numerator / hit_denominator;
-      vec3 hit_BRDF = hit_Fmicro + (hit_kD * hit_albedo / PI);
-
-      Lo_indir += radiance * hit_BRDF * hit_NdotL;
-      total ++;
-    }
-  }
-  Lo_indir /= SAMPLE_NUM;
-  vec3 ssr = Lo_indir * (F * env_brdf.x + env_brdf.y);
-*/
 
   Lo += radiance * BRDF * NdotL;
   Lo += ibl;

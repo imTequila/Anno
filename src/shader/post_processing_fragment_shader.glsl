@@ -73,6 +73,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
   vec3 dir_step = normalize(dir) * step;
   vec3 cur_position = ori;
 
+
   while (cur_times < total_step_times) {
     vec2 uv = GetScreenCoordinate(cur_position);
     if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
@@ -108,7 +109,7 @@ float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScr
 }
 
 bool RayMarchByUV(vec4 start, vec4 end, out vec2 hit) {
-  const int total_step_times = 20;
+  const int total_step_times = 500;
   
   vec3 RayStartScreen = start.xyz / start.w;
   vec3 RayEndScreen = end.xyz / end.w;
@@ -131,7 +132,7 @@ bool RayMarchByUV(vec4 start, vec4 end, out vec2 hit) {
     float screen_depth = texture(uDepth, uv).r;
     if(screen_depth < 0.001) screen_depth = 10000;
 
-    if (ray_depth - screen_depth > 0.001) {
+    if (ray_depth - screen_depth > 0.01) {
       hit = uv;
       return true;
     }

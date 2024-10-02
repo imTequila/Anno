@@ -66,13 +66,18 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  float step = 0.05;
+
   const int total_step_times = 1000;
   int cur_times = 0;
+  vec2 start_uv = GetScreenCoordinate(ori);
+  vec2 end_uv = GetScreenCoordinate(ori + dir);
+  vec2 step_uv = end_uv - start_uv;
+  float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
 
-  vec3 dir_step = normalize(dir) * step;
+  float step = 0.002 / len;
+
+  vec3 dir_step = dir * step;
   vec3 cur_position = ori;
-
 
   while (cur_times < total_step_times) {
     vec2 uv = GetScreenCoordinate(cur_position);
@@ -94,55 +99,8 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
   return false;
 }
 
-/** Unreal Implement */
-float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScreen)
-{
-	// Computes the scale down factor for RayStepScreen required to fit on the X and Y axis in order to clip it in the viewport
-  float Length = sqrt(RayStepScreen.x * RayStepScreen.x + RayStepScreen.y * RayStepScreen.y);
-	float RayStepScreenInvFactor = 0.5 * Length;
-	vec2 S = 1 - max(abs(RayStepScreen + RayStartScreen * RayStepScreenInvFactor) - RayStepScreenInvFactor, 0.0f) / abs(RayStepScreen);
-
-	// Rescales RayStepScreen accordingly
-	float RayStepFactor = min(S.x, S.y) / RayStepScreenInvFactor;
-
-	return RayStepFactor;
-}
-
-bool RayMarchByUV(vec4 start, vec4 end, out vec2 hit) {
-  const int total_step_times = 500;
-  
-  vec3 RayStartScreen = start.xyz / start.w;
-  vec3 RayEndScreen = end.xyz / end.w;
-  vec3 RayStepScreen = RayEndScreen - RayStartScreen;
-  RayStepScreen *= GetStepScreenFactorToClipAtScreenEdge(RayStartScreen.xy, RayStepScreen.xy);
-  RayStepScreen /= total_step_times;
-
-  vec2 start_uv = RayStartScreen.xy * 0.5 + 0.5;
-  vec2 step = RayStepScreen.xy * 0.5;
-
-
-  int cur_times = 1;
-  while (cur_times < total_step_times) {
-    vec2 uv = start_uv + cur_times * step;
-    if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
-      return false;
-    }
-
-    float ray_depth    = RayStartScreen.z + cur_times * RayStepScreen.z;
-    float screen_depth = texture(uDepth, uv).r;
-    if(screen_depth < 0.001) screen_depth = 10000;
-
-    if (ray_depth - screen_depth > 0.01) {
-      hit = uv;
-      return true;
-    }
-    cur_times ++;
-  }
-}
-
 void main() {
   vec3 position = texture2D(uPosition, vTextureCoord).rgb;
-  vec4 NDCPosition = vWorldToScreen * vec4(position, 1.0);
   vec3 N = texture2D(uNormal, vTextureCoord).rgb;
   vec3 V = normalize(uCameraPos - position);
 
@@ -161,18 +119,13 @@ void main() {
   vec3 Lo_indir = vec3(0.0);
   uint total = 0u;
   
-  vec4 RayStartClip = vWorldToScreen * vec4(position, 1.0);
-
-
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
     vec2 Xi = Hammersley(i, SAMPLE_NUM);
     vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
-    vec4 RayEndClip = vWorldToScreen * vec4(position + sample_vector, 1.0);
-
     float NdotSample = dot(N, sample_vector);
-    vec2 hit;
-    if (RayMarchByUV(RayStartClip, RayEndClip, hit)) {
-      vec2 uv = hit;
+    vec3 hit;
+    if (RayMarch(position, sample_vector, hit)) {
+      vec2 uv = GetScreenCoordinate(hit);
       vec3 hitColor = texture2D(uShadingColor, uv).rgb;
 
       Lo_indir += hitColor;

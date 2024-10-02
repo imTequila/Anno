@@ -66,11 +66,17 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  float step = 0.05;
+
   const int total_step_times = 1000;
   int cur_times = 0;
+  vec2 start_uv = GetScreenCoordinate(ori);
+  vec2 end_uv = GetScreenCoordinate(ori + dir);
+  vec2 step_uv = end_uv - start_uv;
+  float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
 
-  vec3 dir_step = normalize(dir) * step;
+  float step = 0.002 / len;
+
+  vec3 dir_step = dir * step;
   vec3 cur_position = ori;
 
   while (cur_times < total_step_times) {

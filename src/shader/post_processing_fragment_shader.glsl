@@ -118,35 +118,68 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  const int total_step_times = 500;
-  int cur_times = 0;
+  const int total_step_times = 4 * 4 + 1;
+  int cur_times = 1;
+
   vec2 start_uv = GetScreenCoordinate(ori);
   vec2 end_uv = GetScreenCoordinate(ori + dir);
   vec2 step_uv = end_uv - start_uv;
+  
   float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
-
-  float step = 0.002 / len;
+  float step = 0.1 / len;
 
   vec3 dir_step = dir * step;
-  vec3 cur_position = ori;
+  float LastDiff = 0;
 
-  while (cur_times < total_step_times) {
-    vec2 uv = GetScreenCoordinate(cur_position);
-    if (uv.x > 1.0 || uv.x < 0.0 || uv.y > 1.0 || uv.y < 0.0){
-      return false;
+  while (cur_times < total_step_times) {  
+		vec2 SamplesUV[4];
+		float SamplesZ[4];
+		float SamplesDepth[4];
+    float DiffDepth[4];
+    bool FoundAny = false;
+
+    for (int i = 0; i < 4; i++) {
+      SamplesUV[i] = GetScreenCoordinate(ori + (cur_times + i) * dir_step);
+      SamplesZ[i] = GetDepth(ori + (cur_times + i) * dir_step);
+      SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
+      DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
+      if (DiffDepth[i] > 0.001) FoundAny = true;
     }
-    float ray_depth = GetDepth(cur_position);
-    float depth = texture(uDepth, uv).r;
-    if(depth < 0.000001) depth = 10000;
 
-    if (ray_depth - depth > 0.01) {
-      hit = cur_position;
+    if (FoundAny) {
+      float DepthDiff0 = DiffDepth[2];
+      float DepthDiff1 = DiffDepth[3];
+      float Time0 = 3;
+
+      if (DiffDepth[2] > 0.001)
+      {
+          DepthDiff0 = DiffDepth[1];
+          DepthDiff1 = DiffDepth[2];
+          Time0 = 2;
+      }
+
+      if (DiffDepth[1] > 0.001)
+      {
+          DepthDiff0 = DiffDepth[0];
+          DepthDiff1 = DiffDepth[1];
+          Time0 = 1;
+      }
+
+      if (DiffDepth[0] > 0.001)
+      {
+          DepthDiff0 = LastDiff;
+          DepthDiff1 = DiffDepth[0];
+          Time0 = 0;
+      }
+      Time0 += float(cur_times);
+      float Time1 = Time0 + 1;
+      float TimeLerp = clamp(DepthDiff0 / (DepthDiff0 - DepthDiff1), 0.0, 1.0);
+      float IntersectTime = Time0 + TimeLerp;
+      hit =  ori + IntersectTime * dir_step;
       return true;
     }
-    cur_position += dir_step;
-    cur_times ++;
+    cur_times += 4;
   }
-
   return false;
 }
 
@@ -166,7 +199,7 @@ void main() {
 
 
   vec3 R = normalize(reflect(-V, N));
-  const uint SAMPLE_NUM = 4u;
+  const uint SAMPLE_NUM = 2u;
   vec3 Lo_indir = vec3(0.0);
   uint total = 0u;
   
@@ -188,7 +221,6 @@ void main() {
   Lo_indir /= SAMPLE_NUM;
   vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
   vec3 ssr = Lo_indir * (F_ibl * env_brdf.x + env_brdf.y);
-  ssr = Lo_indir;
 
   vec3 color = texture(uShadingColor, vTextureCoord).rgb + ssr;
   color = color / (color + vec3(1.0));

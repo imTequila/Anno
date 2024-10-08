@@ -153,7 +153,7 @@ void main() {
 
   vec3 radiance = vec3(1.0f, 1.0f, 1.0f);
 
-  float roughness =clamp(texture(uRMO, vTextureCoord).r, 0.01, 0.999);
+  float roughness = clamp(texture(uRMO, vTextureCoord).r, 0.01, 0.999);
 
   float NDF = DistributionGGX(N, H, roughness);
   float G = GeometrySmith(N, V, L, roughness);

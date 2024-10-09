@@ -103,6 +103,13 @@ int main() {
   }
   glEnable(GL_DEPTH_TEST);
 
+  glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
+                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  glm::vec4 position {0, 0, -0.2, 1};
+
+  auto res =  projection * position;
+  std::cout << res.x << "," << res.y << "," << res.z << "," << res.w << std::endl;
+
   /* prepare data  */
   scene_t scene("../assets/common/cube.scn");
 

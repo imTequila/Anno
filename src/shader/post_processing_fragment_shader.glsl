@@ -15,6 +15,7 @@ uniform vec3 uCameraPos;
 out vec4 FragColor;
 
 const float PI = 3.14159265359;
+const float MAX_DIFF = 100;
 
 vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
@@ -117,69 +118,107 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
   return normalize(sampleVec);
 }
 
-bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  const int total_step_times = 4 * 4 + 1;
-  int cur_times = 1;
+float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScreen) {
+	// Computes the scale down factor for RayStepScreen required to fit on the X and Y axis in order to clip it in the viewport
+  float Length = sqrt(RayStepScreen.x * RayStepScreen.x + RayStepScreen.y * RayStepScreen.y);
+	float RayStepScreenInvFactor = 0.5 * Length;
+	vec2 S = 1 - max(abs(RayStepScreen + RayStartScreen * RayStepScreenInvFactor) - RayStepScreenInvFactor, 0.0f) / abs(RayStepScreen);
 
-  vec2 start_uv = GetScreenCoordinate(ori);
-  vec2 end_uv = GetScreenCoordinate(ori + dir);
+	// Rescales RayStepScreen accordingly
+	float RayStepFactor = min(S.x, S.y) / RayStepScreenInvFactor;
+
+	return RayStepFactor;
+}
+
+bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
+  const int total_step_times = 8 * 4;
+  int cur_times = 0;
+
+  ori += (0.01 * dir);
+
+  vec2 start_uv = GetScreenCoordinate(ori);       // texture space xy of start
+  vec2 end_uv = GetScreenCoordinate(ori + dir);   // texture space xy of end
   vec2 step_uv = end_uv - start_uv;
-  
+
+  float start_depth = (vWorldToScreen * vec4(ori, 1.0)).w;
+  float end_depth = (vWorldToScreen * vec4(ori + dir, 1.0)).w;
+  float step_depth = end_depth - start_depth;
+
+  float factor = GetStepScreenFactorToClipAtScreenEdge((start_uv - 0.5) * 2, step_uv * 2);
+
   float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
-  float step = 0.1 / len;
+  float step = 0.02 / len;
 
   vec3 dir_step = dir * step;
   float LastDiff = 0;
 
-  while (cur_times < total_step_times) {  
-		vec2 SamplesUV[4];
-		float SamplesZ[4];
-		float SamplesDepth[4];
-    float DiffDepth[4];
-    bool FoundAny = false;
+  // while (cur_times < total_step_times) {  
+	// 	vec2 SamplesUV[4];
+	// 	float SamplesZ[4];
+	// 	float SamplesDepth[4];
+  //   float DiffDepth[4];
+  //   bool FoundAny = false;
+  //   bool OutBoundary = false;
 
-    for (int i = 0; i < 4; i++) {
-      SamplesUV[i] = GetScreenCoordinate(ori + (cur_times + i) * dir_step);
-      SamplesZ[i] = GetDepth(ori + (cur_times + i) * dir_step);
-      SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
-      DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
-      if (DiffDepth[i] > 0.001) FoundAny = true;
-    }
+  //   for (int i = 0; i < 4; i++) {
+  //     SamplesUV[i] = start_uv + (cur_times + i) * (step * step_uv);
+  //     SamplesZ[i] = start_depth + (cur_times + i) * (step * step_depth);
+  //     SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
+  //     DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
+  //     if (DiffDepth[i] > 0.001) FoundAny = true;
+  //     if (SamplesUV[i].x < 0 || SamplesUV[i].y < 0 || SamplesUV[i].x > 1 || SamplesUV[i].y > 1) {
+  //       OutBoundary = true;
+  //       DiffDepth[i] = -1;
+  //     }
+  //   }
 
-    if (FoundAny) {
-      float DepthDiff0 = DiffDepth[2];
-      float DepthDiff1 = DiffDepth[3];
-      float Time0 = 3;
+  //   if (FoundAny) {
+  //     float DepthDiff0 = DiffDepth[2];
+  //     float DepthDiff1 = DiffDepth[3];
+  //     float Time0 = 3;
 
-      if (DiffDepth[2] > 0.001)
-      {
-          DepthDiff0 = DiffDepth[1];
-          DepthDiff1 = DiffDepth[2];
-          Time0 = 2;
-      }
+  //     if ( DiffDepth[2] > 0.001 )
+  //     {
+  //         DepthDiff0 = DiffDepth[1];
+  //         DepthDiff1 = DiffDepth[2];
+  //         Time0 = 2;
+  //     }
 
-      if (DiffDepth[1] > 0.001)
-      {
-          DepthDiff0 = DiffDepth[0];
-          DepthDiff1 = DiffDepth[1];
-          Time0 = 1;
-      }
+  //     if ( DiffDepth[1] > 0.001 )
+  //     {
+  //         DepthDiff0 = DiffDepth[0];
+  //         DepthDiff1 = DiffDepth[1];
+  //         Time0 = 1;
+  //     }
 
-      if (DiffDepth[0] > 0.001)
-      {
-          DepthDiff0 = LastDiff;
-          DepthDiff1 = DiffDepth[0];
-          Time0 = 0;
-      }
-      Time0 += float(cur_times);
-      float Time1 = Time0 + 1;
-      float TimeLerp = clamp(DepthDiff0 / (DepthDiff0 - DepthDiff1), 0.0, 1.0);
-      float IntersectTime = Time0 + TimeLerp;
-      hit =  ori + IntersectTime * dir_step;
+  //     if ( DiffDepth[0] > 0.001 )
+  //     {
+  //         DepthDiff0 = LastDiff;
+  //         DepthDiff1 = DiffDepth[0];
+  //         Time0 = 0;
+  //     }
+  //     Time0 += float(cur_times);
+  //     float Time1 = Time0 + 1;
+  //     float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
+  //     float IntersectTime = Time0 + TimeLerp;
+  //     hit =  ori + IntersectTime * dir_step;
+  //     return true;
+  //   }
+  //   if (OutBoundary) return false;
+  //   cur_times += 4;
+  // }
+
+  while (cur_times < total_step_times) {
+    vec2 uv = start_uv + cur_times * (step_uv * step);
+    float depth = start_depth + cur_times * (step_depth * step);
+    float scene_depth = texture(uDepth, uv).r;
+    if (depth - scene_depth > 0.001){
+      hit = ori + cur_times * dir_step;
       return true;
     }
-    cur_times += 4;
+    cur_times ++;
   }
+
   return false;
 }
 
@@ -199,7 +238,7 @@ void main() {
 
 
   vec3 R = normalize(reflect(-V, N));
-  const uint SAMPLE_NUM = 2u;
+  const uint SAMPLE_NUM = 16u;
   vec3 Lo_indir = vec3(0.0);
   uint total = 0u;
   
@@ -214,11 +253,12 @@ void main() {
       vec2 uv = GetScreenCoordinate(hit);
       vec3 hitColor = texture2D(uShadingColor, uv).rgb;
 
-      Lo_indir += hitColor;
+      Lo_indir += (hitColor);
       total ++;
     }
   }
-  Lo_indir /= SAMPLE_NUM;
+  if (total > 0u)
+    Lo_indir /= total;
   vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
   vec3 ssr = Lo_indir * (F_ibl * env_brdf.x + env_brdf.y);
 

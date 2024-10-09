@@ -6,8 +6,8 @@ lighting:
 materials 2:
     material 0:
         basecolor_factor: 1 1 1 1
-        metalness_factor: 1
-        roughness_factor: 0.2
+        metalness_factor: 0.7
+        roughness_factor: 0.1
         basecolor_map: null
         metalness_map: null
         roughness_map: null

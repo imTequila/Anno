@@ -13,7 +13,6 @@ uniform sampler2D uEmission;
 uniform sampler2D uDepth;
 uniform sampler2D uShadowMap;
 
-uniform samplerCube uPrefilterMap;
 uniform sampler2D uBRDFLut_ibl;
 
 uniform sampler2D uBRDFLut;
@@ -169,17 +168,9 @@ void main() {
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
   vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
-  vec3 R = normalize(reflect(-V, N));
-  const float MAX_LOD = 4.0;
-  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
-  vec2 env_brdf =
-      texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
-  float occlusion = texture(uRMO, vTextureCoord).b;
-  vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-  vec3 ibl = prefilter_color * (F_ibl * env_brdf.x + env_brdf.y) * occlusion;
+
 
   Lo += radiance * BRDF * NdotL;
-  Lo += ibl;
   vec3 color = Lo;
   color += texture(uEmission, vTextureCoord).rgb;
 

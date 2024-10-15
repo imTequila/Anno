@@ -9,6 +9,7 @@ uniform sampler2D uBaseColor;
 uniform sampler2D uRMO;
 uniform sampler2D uNormal;
 uniform sampler2D uBRDFLut_ibl;
+uniform samplerCube uPrefilterMap;
 
 uniform vec3 uCameraPos;
 
@@ -131,8 +132,8 @@ float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScr
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
-  const int total_step_times = 8 * 4;
-  int cur_times = 0;
+  const int total_step_times = 32 * 4 + 1;
+  int cur_times = 1;
 
   ori += (0.01 * dir);
 
@@ -147,77 +148,87 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
   float factor = GetStepScreenFactorToClipAtScreenEdge((start_uv - 0.5) * 2, step_uv * 2);
 
   float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
-  float step = 0.02 / len;
+  float step = factor * 0.004 / len;
 
   vec3 dir_step = dir * step;
   float LastDiff = 0;
 
-  // while (cur_times < total_step_times) {  
-	// 	vec2 SamplesUV[4];
-	// 	float SamplesZ[4];
-	// 	float SamplesDepth[4];
-  //   float DiffDepth[4];
-  //   bool FoundAny = false;
-  //   bool OutBoundary = false;
+  while (cur_times < total_step_times) {  
+		vec2 SamplesUV[4];
+		float SamplesZ[4];
+		float SamplesDepth[4];
+    float DiffDepth[4];
+    bool FoundAny = false;
+    bool OutBoundary = false;
 
-  //   for (int i = 0; i < 4; i++) {
-  //     SamplesUV[i] = start_uv + (cur_times + i) * (step * step_uv);
-  //     SamplesZ[i] = start_depth + (cur_times + i) * (step * step_depth);
-  //     SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
-  //     DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
-  //     if (DiffDepth[i] > 0.001) FoundAny = true;
-  //     if (SamplesUV[i].x < 0 || SamplesUV[i].y < 0 || SamplesUV[i].x > 1 || SamplesUV[i].y > 1) {
-  //       OutBoundary = true;
-  //       DiffDepth[i] = -1;
-  //     }
-  //   }
+    for (int i = 0; i < 4; i++) {
+      SamplesUV[i] = start_uv + (cur_times + i) * (step * step_uv);
+      SamplesZ[i] = start_depth + (cur_times + i) * (step * step_depth);
+      SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
+      DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
+      
+      if (SamplesUV[i].x < 0 || SamplesUV[i].y < 0 || SamplesUV[i].x > 1 || SamplesUV[i].y > 1) {
+        OutBoundary = true;
+        DiffDepth[i] = -1;
+      }
 
-  //   if (FoundAny) {
-  //     float DepthDiff0 = DiffDepth[2];
-  //     float DepthDiff1 = DiffDepth[3];
-  //     float Time0 = 3;
+      if (SamplesDepth[i] < 0.001) {
+        DiffDepth[i] = -1;
+      }
 
-  //     if ( DiffDepth[2] > 0.001 )
-  //     {
-  //         DepthDiff0 = DiffDepth[1];
-  //         DepthDiff1 = DiffDepth[2];
-  //         Time0 = 2;
-  //     }
+      if (DiffDepth[i] > 0.001) FoundAny = true;
+    }
 
-  //     if ( DiffDepth[1] > 0.001 )
-  //     {
-  //         DepthDiff0 = DiffDepth[0];
-  //         DepthDiff1 = DiffDepth[1];
-  //         Time0 = 1;
-  //     }
+    if (FoundAny) {
+      float DepthDiff0 = DiffDepth[2];
+      float DepthDiff1 = DiffDepth[3];
+      float Time0 = 3;
 
-  //     if ( DiffDepth[0] > 0.001 )
-  //     {
-  //         DepthDiff0 = LastDiff;
-  //         DepthDiff1 = DiffDepth[0];
-  //         Time0 = 0;
-  //     }
-  //     Time0 += float(cur_times);
-  //     float Time1 = Time0 + 1;
-  //     float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
-  //     float IntersectTime = Time0 + TimeLerp;
-  //     hit =  ori + IntersectTime * dir_step;
+      if ( DiffDepth[2] > 0.001 )
+      {
+          DepthDiff0 = DiffDepth[1];
+          DepthDiff1 = DiffDepth[2];
+          Time0 = 2;
+      }
+
+      if ( DiffDepth[1] > 0.001 )
+      {
+          DepthDiff0 = DiffDepth[0];
+          DepthDiff1 = DiffDepth[1];
+          Time0 = 1;
+      }
+
+      if ( DiffDepth[0] > 0.001 )
+      {
+          DepthDiff0 = LastDiff;
+          DepthDiff1 = DiffDepth[0];
+          Time0 = 0;
+      }
+      Time0 += float(cur_times);
+      float Time1 = Time0 + 1;
+      float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
+      float IntersectTime = Time0 + TimeLerp;
+      hit =  ori + IntersectTime * dir_step;
+
+      vec2 hitUV = GetScreenCoordinate(hit);
+      if (texture2D(uDepth, hitUV).r >= 0.001) {
+        return true;
+      }
+    }
+    if (OutBoundary) return false;
+    cur_times += 4;
+  }
+
+  // while (cur_times < total_step_times) {
+  //   vec2 uv = start_uv + cur_times * (step_uv * step);
+  //   float depth = start_depth + cur_times * (step_depth * step);
+  //   float scene_depth = texture(uDepth, uv).r;
+  //   if (depth - scene_depth > 0.001){
+  //     hit = ori + cur_times * dir_step;
   //     return true;
   //   }
-  //   if (OutBoundary) return false;
-  //   cur_times += 4;
+  //   cur_times ++;
   // }
-
-  while (cur_times < total_step_times) {
-    vec2 uv = start_uv + cur_times * (step_uv * step);
-    float depth = start_depth + cur_times * (step_depth * step);
-    float scene_depth = texture(uDepth, uv).r;
-    if (depth - scene_depth > 0.001){
-      hit = ori + cur_times * dir_step;
-      return true;
-    }
-    cur_times ++;
-  }
 
   return false;
 }
@@ -238,7 +249,7 @@ void main() {
 
 
   vec3 R = normalize(reflect(-V, N));
-  const uint SAMPLE_NUM = 16u;
+  const uint SAMPLE_NUM = 4u;
   vec3 Lo_indir = vec3(0.0);
   uint total = 0u;
   
@@ -262,7 +273,14 @@ void main() {
   vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
   vec3 ssr = Lo_indir * (F_ibl * env_brdf.x + env_brdf.y);
 
-  vec3 color = texture(uShadingColor, vTextureCoord).rgb + ssr;
+  const float MAX_LOD = 4.0;
+  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
+  float occlusion = texture(uRMO, vTextureCoord).b;
+  vec3 ibl = prefilter_color * (F_ibl * env_brdf.x + env_brdf.y) * occlusion;
+
+  vec3 indir = float(total) / float(SAMPLE_NUM) * ssr + float(SAMPLE_NUM - total) / float(SAMPLE_NUM) * ibl;
+
+  vec3 color = texture(uShadingColor, vTextureCoord).rgb + indir;
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
   FragColor = vec4(color, 1.0);

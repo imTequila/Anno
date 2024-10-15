@@ -826,10 +826,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glActiveTexture(GL_TEXTURE7);
   glBindTexture(GL_TEXTURE_2D, this->e_avg);
   glActiveTexture(GL_TEXTURE8);
-  glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
-  glActiveTexture(GL_TEXTURE9);
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
-  glActiveTexture(GL_TEXTURE10);
+  glActiveTexture(GL_TEXTURE9);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
   
   this->quad_shader.use();
@@ -846,9 +844,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->quad_shader.setInt("uDepth", 5);            /* needed in post processing */
   this->quad_shader.setInt("uBRDFLut", 6);
   this->quad_shader.setInt("uEavgLut", 7);
-  this->quad_shader.setInt("uPrefilterMap", 8);
-  this->quad_shader.setInt("uBRDFLut_ibl", 9);      /* needed in post processing */
-  this->quad_shader.setInt("uShadowMap", 10);
+  this->quad_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
+  this->quad_shader.setInt("uShadowMap", 9);
   
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -878,6 +875,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->g_depth);
   glActiveTexture(GL_TEXTURE5);
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
+  glActiveTexture(GL_TEXTURE6);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
 
 
 
@@ -889,6 +888,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->post_shader.setInt("uRMO", 3);
   this->post_shader.setInt("uDepth", 4);
   this->post_shader.setInt("uBRDFLut_ibl", 5);
+  this->post_shader.setInt("uPrefilterMap", 6);
 
   this->post_shader.setMat4("uViewMatrix", view);
   this->post_shader.setMat4("uProjectionMatrix", projection);

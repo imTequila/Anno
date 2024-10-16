@@ -25,12 +25,9 @@ const float PI = 3.14159265359;
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
   float alpha2 = roughness * roughness * roughness * roughness;
   float NdotH = dot(N, H);
-  float NdotH2 = NdotH * NdotH;
-  float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
+  float denom = ( NdotH * alpha2 - NdotH ) * NdotH + 1;
   float GGX = alpha2 / (PI * denom * denom);
-  if (GGX > 0.0)
-    return GGX;
-  return 0.0001;
+  return GGX;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness) {
@@ -167,8 +164,6 @@ void main() {
   vec3 Fmicro = numerator / denominator;
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
   vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
-
-
 
   Lo += radiance * BRDF * NdotL;
   vec3 color = Lo;

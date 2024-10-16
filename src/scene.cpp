@@ -739,6 +739,7 @@ static void saveArrayToTextFile(const std::string& filename, const float* array,
 }
 
 void scene_t::draw_scene_deferred(camera_t camera) {
+  static int frame_idx = 0;
   glm::mat4 view = camera.GetViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
@@ -762,6 +763,7 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
+  this->geometry_shader.setInt("uOffsetIdx", frame_idx % 8);
   this->geometry_shader.setInt("uBasecolorMap", 0);
   this->geometry_shader.setInt("uMetalnessMap", 1);
   this->geometry_shader.setInt("uRoughnessMap", 2);
@@ -896,4 +898,6 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   
+  frame_idx ++;
+
 }

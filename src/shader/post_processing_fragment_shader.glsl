@@ -131,7 +131,7 @@ float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScr
 	return RayStepFactor;
 }
 
-bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
+bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   const int total_step_times = 32 * 4 + 1;
   int cur_times = 1;
 
@@ -172,11 +172,11 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
         DiffDepth[i] = -1;
       }
 
-      if (SamplesDepth[i] < 0.001) {
+      if (SamplesDepth[i] < 0.01) {
         DiffDepth[i] = -1;
       }
 
-      if (DiffDepth[i] > 0.001) FoundAny = true;
+      if (DiffDepth[i] > 0.01) FoundAny = true;
     }
 
     if (FoundAny) {
@@ -184,21 +184,21 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
       float DepthDiff1 = DiffDepth[3];
       float Time0 = 3;
 
-      if ( DiffDepth[2] > 0.001 )
+      if ( DiffDepth[2] > 0.01 )
       {
           DepthDiff0 = DiffDepth[1];
           DepthDiff1 = DiffDepth[2];
           Time0 = 2;
       }
 
-      if ( DiffDepth[1] > 0.001 )
+      if ( DiffDepth[1] > 0.01 )
       {
           DepthDiff0 = DiffDepth[0];
           DepthDiff1 = DiffDepth[1];
           Time0 = 1;
       }
 
-      if ( DiffDepth[0] > 0.001 )
+      if ( DiffDepth[0] > 0.01 )
       {
           DepthDiff0 = LastDiff;
           DepthDiff1 = DiffDepth[0];
@@ -208,10 +208,8 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hit) {
       float Time1 = Time0 + 1;
       float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
       float IntersectTime = Time0 + TimeLerp;
-      hit =  ori + IntersectTime * dir_step;
-
-      vec2 hitUV = GetScreenCoordinate(hit);
-      if (texture2D(uDepth, hitUV).r >= 0.001) {
+      hit =  start_uv + IntersectTime * step_uv * step;
+      if (texture2D(uDepth, hit).r >= 0.001) {
         return true;
       }
     }
@@ -249,7 +247,7 @@ void main() {
 
 
   vec3 R = normalize(reflect(-V, N));
-  const uint SAMPLE_NUM = 4u;
+  const uint SAMPLE_NUM = 1u;
   vec3 Lo_indir = vec3(0.0);
   uint total = 0u;
   
@@ -258,10 +256,11 @@ void main() {
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
     vec2 Xi = Hammersley16(i, SAMPLE_NUM, Random);
     vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
+
     float NdotSample = dot(N, sample_vector);
-    vec3 hit;
+    vec2 hit;
     if (RayMarch(position, sample_vector, hit)) {
-      vec2 uv = GetScreenCoordinate(hit);
+      vec2 uv = hit;
       vec3 hitColor = texture2D(uShadingColor, uv).rgb;
 
       Lo_indir += (hitColor);

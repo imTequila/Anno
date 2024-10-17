@@ -24,27 +24,27 @@ scene_t::scene_t(std::string filename) {
   int items = fscanf(file, " type: %s", scene_type);
   assert(items == 1);
 
-  read_light(file);
+  readLight(file);
 
   int num_materials = 0;
   items = fscanf(file, " materials %d:", &num_materials);
   assert(num_materials > 0);
   for (int i = 0; i < num_materials; i++) {
-    this->materials.push_back(read_material(file));
+    this->materials.push_back(readMaterial(file));
   }
 
   int num_transforms = 0;
   items = fscanf(file, " transforms %d:", &num_transforms);
   assert(num_transforms > 0);
   for (int i = 0; i < num_transforms; i++) {
-    this->transforms.push_back(read_transform(file));
+    this->transforms.push_back(readTransform(file));
   }
 
   int num_models = 0;
   items = fscanf(file, " models %d:", &num_models);
   assert(num_models > 0);
   for (int i = 0; i < num_models; i++) {
-    this->models.push_back(read_model(file));
+    this->models.push_back(readModel(file));
   }
   shader_t shader_t1("../src/shader/pbr_vertex_shader.glsl",
                     "../src/shader/pbr_fragment_shader.glsl");
@@ -62,14 +62,14 @@ scene_t::scene_t(std::string filename) {
                        "../src/shader/post_processing_fragment_shader.glsl");
   this->post_shader = shader_t4;
 
-  config_skybox();
-  config_kulla_conty();
-  config_ibl();
-  config_shadow_map();
-  confing_deferred();
+  configSkybox();
+  configKullaConty();
+  configIBL();
+  configShadowMap();
+  configDeferred();
 }
 
-void scene_t::read_light(FILE *file) {
+void scene_t::readLight(FILE *file) {
   char header[LINE_SIZE];
   int items;
 
@@ -84,7 +84,7 @@ void scene_t::read_light(FILE *file) {
   return;
 }
 
-material_t *scene_t::read_material(FILE *file) {
+material_t *scene_t::readMaterial(FILE *file) {
   material_t *material = new material_t();
   int items;
   char path[LINE_SIZE];
@@ -169,7 +169,7 @@ material_t *scene_t::read_material(FILE *file) {
   return material;
 }
 
-glm::mat4 scene_t::read_transform(FILE *file) {
+glm::mat4 scene_t::readTransform(FILE *file) {
   glm::mat4 transform;
   int items;
   int index;
@@ -184,7 +184,7 @@ glm::mat4 scene_t::read_transform(FILE *file) {
   return transform;
 }
 
-model_t *scene_t::read_model(FILE *file) {
+model_t *scene_t::readModel(FILE *file) {
   int index;
   char path[LINE_SIZE];
 
@@ -215,11 +215,11 @@ model_t *scene_t::read_model(FILE *file) {
   items = fscanf(file, " transform: %d", &transform_index);
   assert(items == 1);
 
-  return new model_t(load_mesh(mesh_path), this->materials[material_index],
+  return new model_t(loadMesh(mesh_path), this->materials[material_index],
                      this->transforms[transform_index]);
 }
 
-void scene_t::config_skybox() {
+void scene_t::configSkybox() {
   unsigned int skybox_texture;
   glGenTextures(1, &skybox_texture);
   glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_texture);
@@ -311,11 +311,11 @@ void scene_t::config_skybox() {
   return;
 }
 
-void scene_t::draw_skybox(camera_t camera) {
+void scene_t::drawSkybox(camera_t camera) {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_CUBE_MAP, this->skybox_texture);
 
-  glm::mat4 view = camera.GetViewMatrix();
+  glm::mat4 view = camera.getViewMatrix();
   glm::mat4 skybox_view = glm::mat4(glm::mat3(view));
   glm::mat4 skybox_projection = glm::perspective(glm::radians(camera.Zoom),
                                                 (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
@@ -338,7 +338,7 @@ void scene_t::draw_skybox(camera_t camera) {
   glDepthFunc(GL_LESS);
 }
 
-void scene_t::config_kulla_conty() {
+void scene_t::configKullaConty() {
   glGenTextures(1, &this->e_lut);
   int width, height, nrChannels;
   stbi_set_flip_vertically_on_load(1);
@@ -373,7 +373,7 @@ void scene_t::config_kulla_conty() {
   stbi_image_free(data);
 }
 
-void scene_t::config_ibl() {
+void scene_t::configIBL() {
   glGenFramebuffers(1, &this->ibl_fbo);
   glGenRenderbuffers(1, &this->ibl_rbo);
   glBindFramebuffer(GL_FRAMEBUFFER, this->ibl_fbo);
@@ -491,7 +491,7 @@ void scene_t::config_ibl() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void scene_t::config_shadow_map() {
+void scene_t::configShadowMap() {
   glGenFramebuffers(1, &this->shadow_fbo);
 
   glGenTextures(1, &shadow_map);
@@ -508,7 +508,7 @@ void scene_t::config_shadow_map() {
   this->shadow_shader = shader_t1;
 }
 
-void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) {
+void scene_t::drawShadowMap(glm::mat4 light_view, glm::mat4 light_projection) {
   glBindFramebuffer(GL_FRAMEBUFFER, this->shadow_fbo);
   glClear(GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -532,7 +532,7 @@ void scene_t::draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection) 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void scene_t::draw_scene_forward(camera_t camera) {
+void scene_t::drawSceneForward(camera_t camera) {
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_2D, this->e_lut);
   glActiveTexture(GL_TEXTURE7);
@@ -544,7 +544,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
   glActiveTexture(GL_TEXTURE10);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
 
-  glm::mat4 view = camera.GetViewMatrix();
+  glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.01f, 100.0f);
 
@@ -553,7 +553,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom),
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
 
-  draw_shadow_map(light_view, light_projection);
+  drawShadowMap(light_view, light_projection);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -610,7 +610,7 @@ void scene_t::draw_scene_forward(camera_t camera) {
   }
 }
 
-void scene_t::confing_deferred() {
+void scene_t::configDeferred() {
   glGenFramebuffers(1, &this->geometry_fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
 
@@ -738,18 +738,26 @@ static void saveArrayToTextFile(const std::string& filename, const float* array,
     }
 }
 
-void scene_t::draw_scene_deferred(camera_t camera) {
+void scene_t::drawSceneDeferred(camera_t camera) {
   static int frame_idx = 0;
-  glm::mat4 view = camera.GetViewMatrix();
+  glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+  
+  glm::mat4 pre_view;
+  glm::mat4 pre_projection;
+  if (frame_idx == 0) {
+    pre_projection = projection;
+    pre_view = view;
+  }
 
   glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
 
-  draw_shadow_map(light_view, light_projection);
+  drawShadowMap(light_view, light_projection);
   
   glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
   glEnable(GL_STENCIL_TEST);
@@ -763,6 +771,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
+  this->geometry_shader.setMat4("uPreViewMatrix", pre_view);
+  this->geometry_shader.setMat4("uPreProjectionMatrix", pre_projection);
   this->geometry_shader.setInt("uOffsetIdx", frame_idx % 8);
   this->geometry_shader.setInt("uBasecolorMap", 0);
   this->geometry_shader.setInt("uMetalnessMap", 1);
@@ -899,5 +909,8 @@ void scene_t::draw_scene_deferred(camera_t camera) {
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   
   frame_idx ++;
+  pre_projection = projection;
+  pre_view = view;
 
+  drawSkybox(camera);
 }

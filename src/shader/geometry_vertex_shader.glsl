@@ -6,6 +6,10 @@ layout(location = 3) in vec4 aTan;
 uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
+
+uniform mat4 uPreViewMatrix;
+uniform mat4 uPreProjectionMatrix;
+
 uniform int uOffsetIdx;
 
 out vec2 vTextureCoord;
@@ -14,6 +18,9 @@ out vec3 vFragPos;
 out vec3 vTangent;
 out vec3 vBitangent;
 out float vDepth;
+
+out vec4 vPrePos;
+out vec4 vCurPos;
 
 const vec2 Halton_2_3[8] = vec2[8]
 (
@@ -43,8 +50,10 @@ void main() {
   jitterMat[2][0] += jitter.x;
   jitterMat[2][1] += jitter.y;
 
-  gl_Position =
-      jitterMat * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+  gl_Position = jitterMat * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+  
+
+  vCurPos = gl_Position;
   vDepth = gl_Position.w;
 
 }

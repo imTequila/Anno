@@ -42,9 +42,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) {
   float NdotH2 = NdotH * NdotH;
   float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
   float GGX = alpha2 / (PI * denom * denom);
-  if (GGX > 0.0)
-    return GGX;
-  return 0.0001;
+  return GGX;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness) {
@@ -85,18 +83,18 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
     albedo = pow(uBasecolor.rgb, vec3(2.2));
   }
 
-  vec3 E_o = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
-  vec3 E_i = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
+  vec3 Eo = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
+  vec3 Ei = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
 
-  vec3 E_avg = texture2D(uEavgLut, vec2(0, roughness)).xyz;
+  vec3 Eavg = texture2D(uEavgLut, vec2(0, roughness)).xyz;
 
   vec3 edgetint = vec3(0.827, 0.792, 0.678);
-  vec3 F_avg = AverageFresnel(albedo, edgetint);
+  vec3 Favg = AverageFresnel(albedo, edgetint);
 
-  vec3 F_ms =
-      (vec3(1.0) - E_o) * (vec3(1.0) - E_i) / (PI * (vec3(1.0) - E_avg));
-  vec3 F_add = F_avg * E_avg / (vec3(1.0) - F_avg * (vec3(1.0) - E_avg));
-  return F_add * F_ms;
+  vec3 Fms =
+      (vec3(1.0) - Eo) * (vec3(1.0) - Ei) / (PI * (vec3(1.0) - Eavg));
+  vec3 Fadd = Favg * Eavg / (vec3(1.0) - Favg * (vec3(1.0) - Eavg));
+  return Fadd * Fms;
 }
 
 void main() {
@@ -161,15 +159,15 @@ void main() {
 
   vec3 R = reflect(-V, N);
   const float MAX_LOD = 4.0;
-  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
-  vec2 env_brdf =
+  vec3 prefilterColor = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
+  vec2 envBRDF =
       texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
   float occlusion = 1.0f;
   if (uEnableOcclusion == 1) {
     occlusion = texture(uOcclusionMap, vTextureCoord).r;
   }
-  vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-  vec3 ibl = prefilter_color * (F_ibl * env_brdf.x + env_brdf.y) * occlusion;
+  vec3 Fibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+  vec3 ibl = prefilterColor * (Fibl * envBRDF.x + envBRDF.y) * occlusion;
 
   Lo += radiance * BRDF * NdotL;
   Lo += ibl;

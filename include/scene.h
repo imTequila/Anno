@@ -52,21 +52,21 @@ public:
 
 
   scene_t(std::string filename);
-  void read_light(FILE *file);
-  material_t *read_material(FILE *file);
-  glm::mat4 read_transform(FILE *file);
-  model_t* read_model(FILE *file);
+  void readLight(FILE *file);
+  material_t *readMaterial(FILE *file);
+  glm::mat4 readTransform(FILE *file);
+  model_t* readModel(FILE *file);
 
-  void config_skybox();
-  void config_kulla_conty();
-  void config_ibl();
-  void config_shadow_map();
-  void confing_deferred();
+  void configSkybox();
+  void configKullaConty();
+  void configIBL();
+  void configShadowMap();
+  void configDeferred();
 
-  void draw_skybox(camera_t camera);
-  void draw_shadow_map(glm::mat4 light_view, glm::mat4 light_projection);
-  void draw_scene_forward(camera_t camera);
-  void draw_scene_deferred(camera_t camera);
+  void drawSkybox(camera_t camera);
+  void drawShadowMap(glm::mat4 light_view, glm::mat4 light_projection);
+  void drawSceneForward(camera_t camera);
+  void drawSceneDeferred(camera_t camera);
 };
 
 #endif

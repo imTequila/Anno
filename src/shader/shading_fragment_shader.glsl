@@ -63,29 +63,29 @@ vec3 AverageFresnel(vec3 r, vec3 g) {
 vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
   vec3 albedo = texture(uBasecolor, vTextureCoord).rgb;
 
-  vec3 E_o = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
-  vec3 E_i = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
+  vec3 Eo = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
+  vec3 Ei = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
 
-  vec3 E_avg = texture2D(uEavgLut, vec2(0, roughness)).xyz;
+  vec3 Eavg = texture2D(uEavgLut, vec2(0, roughness)).xyz;
 
   vec3 edgetint = vec3(0.827, 0.792, 0.678);
-  vec3 F_avg = AverageFresnel(albedo, edgetint);
+  vec3 Favg = AverageFresnel(albedo, edgetint);
 
-  vec3 F_ms =
-      (vec3(1.0) - E_o) * (vec3(1.0) - E_i) / (PI * (vec3(1.0) - E_avg));
-  vec3 F_add = F_avg * E_avg / (vec3(1.0) - F_avg * (vec3(1.0) - E_avg));
-  return F_add * F_ms;
+  vec3 Fms =
+      (vec3(1.0) - Eo) * (vec3(1.0) - Ei) / (PI * (vec3(1.0) - Eavg));
+  vec3 Fadd = Favg * Eavg / (vec3(1.0) - Favg * (vec3(1.0) - Eavg));
+  return Fadd * Fms;
 }
 
 vec2 GetScreenCoordinate(vec3 pos) {
-  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
-  vec2 uv = (screen_coor.xy / screen_coor.w) * 0.5 + 0.5;
+  vec4 screenCoor = vWorldToScreen * vec4(pos, 1.0);
+  vec2 uv = (screenCoor.xy / screenCoor.w) * 0.5 + 0.5;
   return uv;
 }
 
 float GetDepth(vec3 pos) {
-  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
-  return screen_coor.w;
+  vec4 screenCoor = vWorldToScreen * vec4(pos, 1.0);
+  return screenCoor.w;
 }
 
 float VanDerCorput(uint bits) {

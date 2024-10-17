@@ -14,9 +14,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) {
   float NdotH2 = NdotH * NdotH;
   float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
   float GGX = alpha2 / (PI * denom * denom);
-  if (GGX > 0.0)
-    return GGX;
-  return 0.0001;
+  return GGX;
 }
 
 float VanDerCorput(uint bits) {

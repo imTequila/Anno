@@ -22,27 +22,27 @@ uniform sampler2D uOcclusionMap;
 uniform sampler2D uEmissionMap;
 
 
-layout (location = 0) out vec3 g_position;
-layout (location = 1) out vec3 g_normal;
-layout (location = 2) out vec4 g_basecolor;
-layout (location = 3) out vec3 g_rmo;
-layout (location = 4) out vec3 g_emission;
-layout (location = 5) out float g_depth;
+layout (location = 0) out vec3 gPosition;
+layout (location = 1) out vec3 gNormal;
+layout (location = 2) out vec4 gBasecolor;
+layout (location = 3) out vec3 gRMO;
+layout (location = 4) out vec3 gEmission;
+layout (location = 5) out float gDepth;
 
 void main() {
     
-  g_position = vFragPos;
-  g_depth = vDepth;
+  gPosition = vFragPos;
+  gDepth = vDepth;
 
   vec3 N = normalize(vNormal);
   if (uEnableBump == 1) {
     vec3 T = normalize(vTangent);
     vec3 B = normalize(vBitangent);
     mat3 TBN = mat3(T, B, N);
-    vec3 normal_from_map = normalize(texture(uNormalMap, vTextureCoord).rgb * 2.0 - 1.0);
-    N = TBN * normal_from_map;
+    vec3 mapNormal = normalize(texture(uNormalMap, vTextureCoord).rgb * 2.0 - 1.0);
+    N = TBN * mapNormal;
   }
-  g_normal = N;
+  gNormal = N;
 
   vec3 albedo;
   if (uBasecolor.r < 0) {
@@ -50,7 +50,7 @@ void main() {
   } else {
     albedo = pow(uBasecolor.rgb, vec3(2.2));
   }
-  g_basecolor = vec4(albedo, 1.0);
+  gBasecolor = vec4(albedo, 1.0);
 
   float roughness;
   if (uRoughness < 0) {
@@ -58,7 +58,7 @@ void main() {
   } else {
     roughness = clamp(uRoughness, 0.001, 0.999);
   }
-  g_rmo.r = roughness;
+  gRMO.r = roughness;
 
   float metallic;
   if (uMetalness < 0) {
@@ -66,18 +66,18 @@ void main() {
   } else {
     metallic = uMetalness;
   }
-  g_rmo.g = metallic;
+  gRMO.g = metallic;
 
   float occlusion = 1.0f;
   if (uEnableOcclusion == 1) {
     occlusion = texture(uOcclusionMap, vTextureCoord).r;
   }
-  g_rmo.b = occlusion;
+  gRMO.b = occlusion;
 
   if (uEnableEmission == 1) {
-    g_emission = pow(texture(uEmissionMap, vTextureCoord).rgb, vec3(2.2));
+    gEmission = pow(texture(uEmissionMap, vTextureCoord).rgb, vec3(2.2));
   }else {
-    g_emission = vec3(0.0);
+    gEmission = vec3(0.0);
   }
 
 }

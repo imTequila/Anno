@@ -15,11 +15,11 @@ model_t::model_t(mesh_t *mesh, material_t *material, glm::mat4 transform) {
   this->normal_map = 0xfff;
   this->occlusion_map = 0xfff;
   this->emission_map = 0xfff;
-  config_buffer();
-  config_texture();
+  configBuffer();
+  configTexture();
 }
 
-void model_t::config_buffer() {
+void model_t::configBuffer() {
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
   float *vertices = new float[mesh->vertices.size() * 12];
@@ -59,7 +59,7 @@ void model_t::config_buffer() {
   glBindVertexArray(0);
 }
 
-void model_t::config_texture() {
+void model_t::configTexture() {
   if (material->basecolor_map != "null") {
     glGenTextures(1, &this->basecolor_map);
     int width, height, nrChannels;

@@ -80,9 +80,9 @@ float frac(float x) {
   else return x - int(x);
 }
 
-vec2 Hammersley16( uint Index, uint NumSamples, uvec2 Random ) {
-	float E1 = frac( float( Index ) / NumSamples + float( Random.x ) * (1.0 / 65536.0) );
-	float E2 = float( ( ReverseBits32(Index) >> 16 ) ^ Random.y ) * (1.0 / 65536.0);
+vec2 Hammersley16( uint Index, uint NumSamples, uvec2 random ) {
+	float E1 = frac( float( Index ) / NumSamples + float( random.x ) * (1.0 / 65536.0) );
+	float E2 = float( ( ReverseBits32(Index) >> 16 ) ^ random.y ) * (1.0 / 65536.0);
 	return vec2( E1, E2 );
 }
 
@@ -99,11 +99,11 @@ vec2 Hammersley(uint i, uint N) {
   return vec2(float(i) / float(N), VanDerCorput(i));
 }
 
-vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+vec3 ImportanceSampleGGX(vec2 xi, vec3 N, float roughness) {
   float a = roughness * roughness;
 
-  float phi = 2.0 * PI * Xi.x;
-  float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+  float phi = 2.0 * PI * xi.x;
+  float cosTheta = sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
   float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
 
   vec3 H;
@@ -243,43 +243,43 @@ void main() {
   vec3 F0 = vec3(0.04);
   F0 = mix(F0, albedo, metallic);
 
-  vec2 env_brdf = texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
+  vec2 envBRDF = texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
 
 
   vec3 R = normalize(reflect(-V, N));
   const uint SAMPLE_NUM = 1u;
-  vec3 Lo_indir = vec3(0.0);
+  vec3 indirLo = vec3(0.0);
   uint total = 0u;
   
-  uvec2 Random = Rand3DPCG16( ivec3( vTextureCoord * 1080, 0 ) ).xy;
+  uvec2 random = Rand3DPCG16( ivec3( vTextureCoord * 1080, 0 ) ).xy;
 
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
-    vec2 Xi = Hammersley16(i, SAMPLE_NUM, Random);
-    vec3 sample_vector = normalize(ImportanceSampleGGX(Xi, R, roughness));
+    vec2 xi = Hammersley16(i, SAMPLE_NUM, random);
+    vec3 sampleVector = normalize(ImportanceSampleGGX(xi, R, roughness));
 
-    float NdotSample = dot(N, sample_vector);
+    float NdotSample = dot(N, sampleVector);
     vec2 hit;
-    if (RayMarch(position, sample_vector, hit)) {
+    if (RayMarch(position, sampleVector, hit)) {
       vec2 uv = hit;
       vec3 hitColor = texture2D(uShadingColor, uv).rgb;
 
-      Lo_indir += (hitColor);
+      indirLo += (hitColor);
       total ++;
     }
   }
   if (total > 0u)
-    Lo_indir /= total;
-  vec3 F_ibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-  vec3 ssr = Lo_indir * (F_ibl * env_brdf.x + env_brdf.y);
+    indirLo /= total;
+  vec3 Fibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+  vec3 ssr = indirLo * (Fibl * envBRDF.x + envBRDF.y);
 
   const float MAX_LOD = 4.0;
-  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
+  vec3 prefilterColor = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
   float occlusion = texture(uRMO, vTextureCoord).b;
-  vec3 ibl = prefilter_color * (F_ibl * env_brdf.x + env_brdf.y) * occlusion;
+  vec3 ibl = prefilterColor * (Fibl * envBRDF.x + envBRDF.y) * occlusion;
 
-  vec3 indir = float(total) / float(SAMPLE_NUM) * ssr + float(SAMPLE_NUM - total) / float(SAMPLE_NUM) * ibl;
+  vec3 indirColor = float(total) / float(SAMPLE_NUM) * ssr + float(SAMPLE_NUM - total) / float(SAMPLE_NUM) * ibl;
 
-  vec3 color = texture(uShadingColor, vTextureCoord).rgb + indir;
+  vec3 color = texture(uShadingColor, vTextureCoord).rgb + indirColor;
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
   FragColor = vec4(color, 1.0);

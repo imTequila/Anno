@@ -10,8 +10,11 @@ uniform sampler2D uRMO;
 uniform sampler2D uNormal;
 uniform sampler2D uBRDFLut_ibl;
 uniform samplerCube uPrefilterMap;
+uniform sampler2D uVelocity;
+uniform sampler2D uPreFrame;
 
 uniform vec3 uCameraPos;
+uniform float uBlend;
 
 out vec4 FragColor;
 
@@ -75,13 +78,13 @@ uint ReverseBits32( uint bits ) {
 	return bits;
 }
 
-float frac(float x) {
+float Frac(float x) {
   if (x > 0) return x;
   else return x - int(x);
 }
 
 vec2 Hammersley16( uint Index, uint NumSamples, uvec2 random ) {
-	float E1 = frac( float( Index ) / NumSamples + float( random.x ) * (1.0 / 65536.0) );
+	float E1 = Frac( float( Index ) / NumSamples + float( random.x ) * (1.0 / 65536.0) );
 	float E2 = float( ( ReverseBits32(Index) >> 16 ) ^ random.y ) * (1.0 / 65536.0);
 	return vec2( E1, E2 );
 }
@@ -231,6 +234,29 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   return false;
 }
 
+vec2 GetClosestOffset() {
+  vec2 deltaRes = vec2(1.0 / 1080, 1.0 / 1080);
+  float closestDepth = 1.0f;
+  vec2 closestUV = vTextureCoord;
+
+  for(int i = -1; i <= 1; ++i)
+  {
+    for(int j =- 1; j <= 1; ++j)
+    {
+      vec2 newUV = vTextureCoord + deltaRes * vec2(i, j);
+
+      float depth = texture2D(uDepth, newUV).x;
+
+      if(depth < closestDepth)
+      {
+        closestDepth = depth;
+        closestUV = newUV;
+      }
+    }
+  }
+  return closestUV;
+}
+
 void main() {
   vec3 position = texture2D(uPosition, vTextureCoord).rgb;
   vec3 N = texture2D(uNormal, vTextureCoord).rgb;
@@ -247,7 +273,7 @@ void main() {
 
 
   vec3 R = normalize(reflect(-V, N));
-  const uint SAMPLE_NUM = 1u;
+  const uint SAMPLE_NUM = 4u;
   vec3 indirLo = vec3(0.0);
   uint total = 0u;
   
@@ -282,5 +308,14 @@ void main() {
   vec3 color = texture(uShadingColor, vTextureCoord).rgb + indirColor;
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
+
+
+  vec2 velocity = texture2D(uVelocity, GetClosestOffset()).rg;
+  vec2 offsetUV = clamp(vTextureCoord + velocity, 0, 1);
+  vec3 preColor = texture2D(uPreFrame, offsetUV).rgb;
+
+  float c = uBlend;
+  color = c * color + (1.0 - c) * preColor;
+
   FragColor = vec4(color, 1.0);
 }

@@ -41,7 +41,11 @@ void main() {
   vTangent = (uModelMatrix * vec4(aTan.xyz, 0.0)).xyz;
   vBitangent = cross(vNormal, vTangent) * aTan.w;
 
-  float deltaWidth = 1.0/1080, deltaHeight = 1.0/1080;
+
+  vPrePos = uPreProjectionMatrix * uPreViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+  vCurPos = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
+
+  float deltaWidth = 1.0 / 1080, deltaHeight = 1.0 / 1080;
   vec2 jitter = vec2(
       Halton_2_3[uOffsetIdx].x * deltaWidth,
       Halton_2_3[uOffsetIdx].y * deltaHeight
@@ -51,9 +55,6 @@ void main() {
   jitterMat[2][1] += jitter.y;
 
   gl_Position = jitterMat * uViewMatrix * uModelMatrix * vec4(aPos, 1.0);
-  
-
-  vCurPos = gl_Position;
   vDepth = gl_Position.w;
 
 }

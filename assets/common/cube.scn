@@ -7,7 +7,7 @@ materials 2:
     material 0:
         basecolor_factor: 1 1 1 1
         metalness_factor: 0.7
-        roughness_factor: 0.7
+        roughness_factor: 0.3
         basecolor_map: null
         metalness_map: null
         roughness_map: null

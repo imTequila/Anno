@@ -6,6 +6,9 @@ in vec3 vTangent;
 in vec3 vBitangent;
 in float vDepth;
 
+in vec4 vPrePos;
+in vec4 vCurPos;
+
 uniform int uEnableBump;
 uniform int uEnableOcclusion;
 uniform int uEnableEmission;
@@ -28,6 +31,7 @@ layout (location = 2) out vec4 gBasecolor;
 layout (location = 3) out vec3 gRMO;
 layout (location = 4) out vec3 gEmission;
 layout (location = 5) out float gDepth;
+layout (location = 6) out vec2 gVelocity;
 
 void main() {
     
@@ -80,4 +84,7 @@ void main() {
     gEmission = vec3(0.0);
   }
 
+  vec2 preScreen = ((vPrePos.xy / vPrePos.w) * vec2(0.5) + vec2(0.5));
+  vec2 curScreen = ((vCurPos.xy / vCurPos.w) * vec2(0.5) + vec2(0.5));
+  gVelocity = preScreen - curScreen;
 }

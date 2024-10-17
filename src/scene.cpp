@@ -15,6 +15,9 @@ const unsigned int SCR_HEIGHT = 1080;
 const unsigned int SHADOW_WIDTH = 4080;
 const unsigned int SHADOW_HEIGHT = 4080;
 
+glm::mat4 pre_view;
+glm::mat4 pre_projection;
+
 scene_t::scene_t(std::string filename) {
   char scene_type[LINE_SIZE];
   FILE *file;
@@ -669,13 +672,22 @@ void scene_t::configDeferred() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, this->g_depth, 0);
 
+  glGenTextures(1, &this->g_velocity);
+  glBindTexture(GL_TEXTURE_2D, this->g_velocity);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RG, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, this->g_velocity, 0);
+
   glGenRenderbuffers(1, &geometry_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, geometry_rbo);
   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, geometry_rbo);
 
-  unsigned int attachments[6] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
-  glDrawBuffers(6, attachments);
+  unsigned int attachments[7] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6};
+  glDrawBuffers(7, attachments);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
@@ -702,6 +714,11 @@ void scene_t::configDeferred() {
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glGenTextures(1, &this->pre_frame);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   float quad_vertices[] = {
       -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
@@ -740,16 +757,15 @@ static void saveArrayToTextFile(const std::string& filename, const float* array,
 
 void scene_t::drawSceneDeferred(camera_t camera) {
   static int frame_idx = 0;
+  float blend = 0.05;
   glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-  
-  glm::mat4 pre_view;
-  glm::mat4 pre_projection;
   if (frame_idx == 0) {
     pre_projection = projection;
     pre_view = view;
+    blend = 1.0;
   }
 
   glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
@@ -889,7 +905,10 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
-
+  glActiveTexture(GL_TEXTURE7);
+  glBindTexture(GL_TEXTURE_2D, this->g_velocity);
+  glActiveTexture(GL_TEXTURE8);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
 
 
   this->post_shader.use();
@@ -901,7 +920,10 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uDepth", 4);
   this->post_shader.setInt("uBRDFLut_ibl", 5);
   this->post_shader.setInt("uPrefilterMap", 6);
+  this->post_shader.setInt("uVelocity", 7);
+  this->post_shader.setInt("uPreFrame", 8);
 
+  this->post_shader.setFloat("uBlend", blend);
   this->post_shader.setMat4("uViewMatrix", view);
   this->post_shader.setMat4("uProjectionMatrix", projection);
   this->post_shader.setVec3("uCameraPos", camera.Position);
@@ -911,6 +933,11 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   frame_idx ++;
   pre_projection = projection;
   pre_view = view;
+
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
+  glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, SCR_WIDTH, SCR_HEIGHT, 0);
 
   drawSkybox(camera);
 }

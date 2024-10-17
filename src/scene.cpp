@@ -939,5 +939,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->pre_frame);
   glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, SCR_WIDTH, SCR_HEIGHT, 0);
 
+  glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);
+
   drawSkybox(camera);
 }

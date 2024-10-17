@@ -311,10 +311,14 @@ void main() {
 
 
   vec2 velocity = texture2D(uVelocity, GetClosestOffset()).rg;
-  vec2 offsetUV = clamp(vTextureCoord + velocity, 0, 1);
+  vec2 preUV = vTextureCoord + velocity;
+  vec2 offsetUV = clamp(preUV, 0, 1);
   vec3 preColor = texture2D(uPreFrame, offsetUV).rgb;
 
   float c = uBlend;
+  // if (preUV.x < 0 || preUV.y < 0 || preUV.x > 1 || preUV.y > 1) {
+  //   c = 1.0;
+  // }
   color = c * color + (1.0 - c) * preColor;
 
   FragColor = vec4(color, 1.0);

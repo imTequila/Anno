@@ -23,6 +23,7 @@ public:
   shader_t shadow_shader;
   shader_t quad_shader;
   shader_t post_shader;
+  shader_t final_shader;
   
   unsigned int e_avg;
   unsigned int e_lut;
@@ -46,10 +47,15 @@ public:
   unsigned int shading_fbo;
   unsigned int shading_rbo;
   unsigned int color_buffer;
+
+  unsigned int post_fbo;
+  unsigned int post_rbo;
+  unsigned int cur_frame;
   unsigned int pre_frame;
 
   unsigned int quad_vao;
   unsigned int quad_vbo;
+
 
 
   scene_t(std::string filename);

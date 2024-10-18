@@ -730,11 +730,6 @@ void scene_t::configDeferred() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->cur_frame, 0);
 
-  glGenTextures(1, &this->pre_frame);
-  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
   glGenRenderbuffers(1, &this->post_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, this->post_rbo);
   
@@ -744,6 +739,12 @@ void scene_t::configDeferred() {
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       std::cout << "Framebuffer not complete!" << std::endl;
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+  glGenTextures(1, &this->pre_frame);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   float quad_vertices[] = {
       -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
@@ -854,7 +855,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   }
   glStencilMask(0x00);
   glDisable(GL_STENCIL_TEST);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   /* shading pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);
@@ -902,8 +902,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, this->geometry_fbo);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -954,11 +952,11 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setVec3("uCameraPos", camera.Position);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+  
   glBindFramebuffer(GL_READ_FRAMEBUFFER, this->post_fbo);
   glBindTexture(GL_TEXTURE_2D, this->pre_frame);
   glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16, 0, 0, SCR_WIDTH, SCR_HEIGHT, 0);
+
 
   /* final pass */
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

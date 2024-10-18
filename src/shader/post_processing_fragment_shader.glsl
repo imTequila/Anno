@@ -316,9 +316,9 @@ void main() {
   vec3 preColor = texture2D(uPreFrame, offsetUV).rgb;
 
   float c = uBlend;
-  // if (preUV.x < 0 || preUV.y < 0 || preUV.x > 1 || preUV.y > 1) {
-  //   c = 1.0;
-  // }
+  if (preUV.x < 0 || preUV.y < 0 || preUV.x > 1 || preUV.y > 1) {
+    c = 1.0;
+  }
   color = c * color + (1.0 - c) * preColor;
 
   FragColor = vec4(color, 1.0);

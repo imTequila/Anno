@@ -10,8 +10,6 @@ uniform sampler2D uRMO;
 uniform sampler2D uNormal;
 uniform sampler2D uBRDFLut_ibl;
 uniform samplerCube uPrefilterMap;
-uniform sampler2D uVelocity;
-uniform sampler2D uPreFrame;
 
 uniform vec3 uCameraPos;
 uniform float uBlend;
@@ -308,18 +306,6 @@ void main() {
   vec3 color = texture(uShadingColor, vTextureCoord).rgb + indirColor;
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0 / 2.2));
-
-
-  vec2 velocity = texture2D(uVelocity, GetClosestOffset()).rg;
-  vec2 preUV = vTextureCoord + velocity;
-  vec2 offsetUV = clamp(preUV, 0, 1);
-  vec3 preColor = texture2D(uPreFrame, offsetUV).rgb;
-
-  float c = uBlend;
-  if (preUV.x < 0 || preUV.y < 0 || preUV.x > 1 || preUV.y > 1) {
-    c = 1.0;
-  }
-  color = c * color + (1.0 - c) * preColor;
 
   FragColor = vec4(color, 1.0);
 }

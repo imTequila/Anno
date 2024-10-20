@@ -69,6 +69,10 @@ scene_t::scene_t(std::string filename) {
                      "../src/shader/final_fragment_shader.glsl");
   this->final_shader = shader_t5;
 
+  shader_t shader_t6("../src/shader/taa_vertex_shader.glsl",
+                     "../src/shader/taa_fragment_shader.glsl");
+  this->taa_shader = shader_t6;
+
   configSkybox();
   configKullaConty();
   configIBL();
@@ -741,6 +745,28 @@ void scene_t::configDeferred() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
+  glGenFramebuffers(1, &this->taa_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, this->taa_fbo);
+  
+  glGenTextures(1, &this->final_color);
+  glBindTexture(GL_TEXTURE_2D, this->final_color);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->final_color, 0);
+
+  glGenRenderbuffers(1, &this->taa_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, this->taa_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->taa_rbo);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+      std::cout << "Framebuffer not complete!" << std::endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
   glGenTextures(1, &this->pre_frame);
   glBindTexture(GL_TEXTURE_2D, this->pre_frame);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -928,11 +954,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
-  glActiveTexture(GL_TEXTURE7);
-  glBindTexture(GL_TEXTURE_2D, this->g_velocity);
-  glActiveTexture(GL_TEXTURE8);
-  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
-
 
   this->post_shader.use();
   this->post_shader.setInt("uShadingColor", 11);
@@ -943,8 +964,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uDepth", 4);
   this->post_shader.setInt("uBRDFLut_ibl", 5);
   this->post_shader.setInt("uPrefilterMap", 6);
-  this->post_shader.setInt("uVelocity", 7);
-  this->post_shader.setInt("uPreFrame", 8);
 
   this->post_shader.setFloat("uBlend", blend);
   this->post_shader.setMat4("uViewMatrix", view);
@@ -952,11 +971,33 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setVec3("uCameraPos", camera.Position);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, this->post_fbo);
+
+  /* TAA pass */
+  glBindFramebuffer(GL_FRAMEBUFFER, this->taa_fbo);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, this->cur_frame);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, this->g_depth);
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_2D, this->g_velocity);
+
+  this->taa_shader.use();
+  this->taa_shader.setInt("uCurFrame", 0);
+  this->taa_shader.setInt("uPreFrame", 1);
+  this->taa_shader.setInt("uDepth", 2);
+  this->taa_shader.setInt("uVelocity", 3);
+  this->taa_shader.setFloat("uBlend", blend);
+  glBindVertexArray(this->quad_vao);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, this->taa_fbo);
   glBindTexture(GL_TEXTURE_2D, this->pre_frame);
   glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16, 0, 0, SCR_WIDTH, SCR_HEIGHT, 0);
-
 
   /* final pass */
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -964,17 +1005,16 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, this->cur_frame);
+  glBindTexture(GL_TEXTURE_2D, this->final_color);
 
   this->final_shader.use();
   this->final_shader.setInt("uCurFrame", 0);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+  drawSkybox(camera);
 
   frame_idx ++;
   pre_projection = projection;
   pre_view = view;
-
-  drawSkybox(camera);
 }

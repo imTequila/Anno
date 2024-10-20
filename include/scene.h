@@ -23,6 +23,7 @@ public:
   shader_t shadow_shader;
   shader_t quad_shader;
   shader_t post_shader;
+  shader_t taa_shader;
   shader_t final_shader;
   
   unsigned int e_avg;
@@ -47,11 +48,15 @@ public:
   unsigned int shading_fbo;
   unsigned int shading_rbo;
   unsigned int color_buffer;
+  unsigned int final_color;
 
   unsigned int post_fbo;
   unsigned int post_rbo;
   unsigned int cur_frame;
   unsigned int pre_frame;
+
+  unsigned int taa_fbo;
+  unsigned int taa_rbo;
 
   unsigned int quad_vao;
   unsigned int quad_vbo;

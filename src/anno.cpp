@@ -7,7 +7,6 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
-
 #include "camera.h"
 #include "mesh.h"
 #include "model.h"
@@ -18,55 +17,55 @@ const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 1080;
 
 camera_t camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
+float last_x = SCR_WIDTH / 2.0f;
+float last_y = SCR_HEIGHT / 2.0f;
+bool first_mouse = true;
 
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
+float delta_time = 0.0f;
+float last_frame = 0.0f;
 
 void processInput(GLFWwindow *window) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(window, true);
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    camera.ProcessKeyboard(UP, deltaTime);
+    camera.processKeyboard(UP, delta_time);
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    camera.ProcessKeyboard(DOWN, deltaTime);
+    camera.processKeyboard(DOWN, delta_time);
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    camera.ProcessKeyboard(LEFT, deltaTime);
+    camera.processKeyboard(LEFT, delta_time);
   if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    camera.ProcessKeyboard(RIGHT, deltaTime);
+    camera.processKeyboard(RIGHT, delta_time);
   if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-    camera.ProcessKeyboard(FORWARD, deltaTime);
+    camera.processKeyboard(FORWARD, delta_time);
   if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-    camera.ProcessKeyboard(BACKWARD, deltaTime);
+    camera.processKeyboard(BACKWARD, delta_time);
 }
-void mouse_callback(GLFWwindow *window, double xposIn, double yposIn) {
-  float xpos = static_cast<float>(xposIn);
-  float ypos = static_cast<float>(yposIn);
+void mouseCallback(GLFWwindow *window, double x_pos_in, double y_pos_in) {
+  float x_pos = static_cast<float>(x_pos_in);
+  float y_pos = static_cast<float>(y_pos_in);
 
-  if (firstMouse) {
-    lastX = xpos;
-    lastY = ypos;
-    firstMouse = false;
+  if (first_mouse) {
+    last_x = x_pos;
+    last_y = y_pos;
+    first_mouse = false;
   }
 
-  float xoffset = xpos - lastX;
-  float yoffset =
-      lastY - ypos; // reversed since y-coordinates go from bottom to top
+  float x_offset = x_pos - last_x;
+  float y_offset =
+      last_y - y_pos; // reversed since y-coordinates go from bottom to top
 
-  lastX = xpos;
-  lastY = ypos;
+  last_x = x_pos;
+  last_y = y_pos;
 
-  camera.ProcessMouseMovement(xoffset, yoffset);
+  camera.processMouseMovement(x_offset, y_offset);
 }
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
-  camera.ProcessMouseScroll(static_cast<float>(yoffset));
+void scrollCallback(GLFWwindow *window, double x_offset, double y_offset) {
+  camera.processMouseScroll(static_cast<float>(y_offset));
 }
-void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
-std::string opengl_errno_name(int err) {
+std::string errorName(int err) {
 	switch (err) {
 #define PER_GL_ERROR(x) case GL_##x: return #x;
 		PER_GL_ERROR(NO_ERROR)
@@ -94,31 +93,35 @@ int main() {
     return -1;
   }
   glfwMakeContextCurrent(window);
-  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-  glfwSetCursorPosCallback(window, mouse_callback);
-  glfwSetScrollCallback(window, scroll_callback);
+  glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+  glfwSetCursorPosCallback(window, mouseCallback);
+  glfwSetScrollCallback(window, scrollCallback);
 
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     glfwTerminate();
   }
   glEnable(GL_DEPTH_TEST);
 
-  /* prepare data  */
-  scene_t scene("../assets/helmet/helmet.scn");
+  glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
+                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  glm::vec4 position {0, 0, -0.2, 1};
 
-  
+  auto res =  projection * position;
+  std::cout << res.x << "," << res.y << "," << res.z << "," << res.w << std::endl;
+
+  /* prepare data  */
+  scene_t scene("../assets/common/cube.scn");
+
   /*  render  */
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
   while (!glfwWindowShouldClose(window)) {
     float currentFrame = static_cast<float>(glfwGetTime());
-    deltaTime = currentFrame - lastFrame;
-    lastFrame = currentFrame;
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    delta_time = currentFrame - last_frame;
+    last_frame = currentFrame;
     processInput(window);
 
-    scene.draw_skybox(camera);
-    scene.draw_scene_deferred(camera);
-
+    scene.drawSceneDeferred(camera);
+    
     glfwSwapBuffers(window);
     glfwPollEvents();
   }

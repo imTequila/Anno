@@ -42,9 +42,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) {
   float NdotH2 = NdotH * NdotH;
   float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
   float GGX = alpha2 / (PI * denom * denom);
-  if (GGX > 0.0)
-    return GGX;
-  return 0.0001;
+  return GGX;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness) {
@@ -65,6 +63,11 @@ vec3 FresnelSchlick(vec3 F0, vec3 V, vec3 H) {
   return F0 + (1.0 - F0) * pow(clamp(1.0 - max(dot(H, V), 0.0), 0.0, 1.0), 5.0);
 }
 
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+} 
+
 vec3 AverageFresnel(vec3 r, vec3 g) {
   return vec3(0.087237) + 0.0230685 * g - 0.0864902 * g * g +
          0.0774594 * g * g * g + 0.782654 * r - 0.136432 * r * r +
@@ -80,18 +83,18 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
     albedo = pow(uBasecolor.rgb, vec3(2.2));
   }
 
-  vec3 E_o = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
-  vec3 E_i = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
+  vec3 Eo = texture(uBRDFLut, vec2(NdotL, roughness)).xyz;
+  vec3 Ei = texture(uBRDFLut, vec2(NdotV, roughness)).xyz;
 
-  vec3 E_avg = texture2D(uEavgLut, vec2(0, roughness)).xyz;
+  vec3 Eavg = texture2D(uEavgLut, vec2(0, roughness)).xyz;
 
   vec3 edgetint = vec3(0.827, 0.792, 0.678);
-  vec3 F_avg = AverageFresnel(albedo, edgetint);
+  vec3 Favg = AverageFresnel(albedo, edgetint);
 
-  vec3 F_ms =
-      (vec3(1.0) - E_o) * (vec3(1.0) - E_i) / (PI * (vec3(1.0) - E_avg));
-  vec3 F_add = F_avg * E_avg / (vec3(1.0) - F_avg * (vec3(1.0) - E_avg));
-  return F_add * F_ms;
+  vec3 Fms =
+      (vec3(1.0) - Eo) * (vec3(1.0) - Ei) / (PI * (vec3(1.0) - Eavg));
+  vec3 Fadd = Favg * Eavg / (vec3(1.0) - Favg * (vec3(1.0) - Eavg));
+  return Fadd * Fms;
 }
 
 void main() {
@@ -152,28 +155,25 @@ void main() {
   float denominator = max((4.0 * NdotL * NdotV), 0.001);
   vec3 Fmicro = numerator / denominator;
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
-  vec3 BRDF = Fms + Fmicro;
+  vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
   vec3 R = reflect(-V, N);
   const float MAX_LOD = 4.0;
-  vec3 prefilter_color = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
-  vec2 env_brdf =
+  vec3 prefilterColor = textureLod(uPrefilterMap, R, roughness * MAX_LOD).rgb;
+  vec2 envBRDF =
       texture(uBRDFLut_ibl, vec2(max(dot(N, V), 0.0)), roughness).rg;
   float occlusion = 1.0f;
   if (uEnableOcclusion == 1) {
     occlusion = texture(uOcclusionMap, vTextureCoord).r;
   }
-  vec3 ibl = prefilter_color * (F * env_brdf.x + env_brdf.y) * occlusion;
+  vec3 Fibl = FresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+  vec3 ibl = prefilterColor * (Fibl * envBRDF.x + envBRDF.y) * occlusion;
 
-  vec3 light_space = vShadowPos.xyz / vShadowPos.w * 0.5 + 0.5;
-  float depth = texture(uShadowMap, light_space.xy).r;
-  float shadow = depth < light_space.z - 0.001? 0.0 : 1.0;
-
-  Lo += radiance * BRDF * NdotL * shadow;
+  Lo += radiance * BRDF * NdotL;
   Lo += ibl;
   vec3 color = Lo;
   if (uEnableEmission == 1) {
-    color += texture(uEmissionMap, vTextureCoord).rgb;
+    color += pow(texture(uEmissionMap, vTextureCoord).rgb,vec3(2.2));
   }
 
   color = color / (color + vec3(1.0));

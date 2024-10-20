@@ -14,9 +14,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) {
   float NdotH2 = NdotH * NdotH;
   float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
   float GGX = alpha2 / (PI * denom * denom);
-  if (GGX > 0.0)
-    return GGX;
-  return 0.0001;
+  return GGX;
 }
 
 float VanDerCorput(uint bits) {
@@ -67,11 +65,11 @@ void main() {
 
     float NdotL = max(dot(N, L), 0.0);
     if (NdotL > 0.0) {
-      prefilteredColor += texture(uEnvironmentMap, L).rgb * NdotL;
+      vec3 sampleColor = texture(uEnvironmentMap, L).rgb;
+      prefilteredColor += sampleColor * NdotL;
       totalWeight += NdotL;
     }
   }
   prefilteredColor = prefilteredColor / totalWeight;
-
   FragColor = vec4(prefilteredColor, 1.0);
 }

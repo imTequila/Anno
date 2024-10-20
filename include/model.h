@@ -38,8 +38,8 @@ public:
   unsigned int emission_map;
 
   model_t(mesh_t *mesh, material_t *material, glm::mat4 transform);
-  void config_buffer();
-  void config_texture();
+  void configBuffer();
+  void configTexture();
   void draw();
 };
 #endif

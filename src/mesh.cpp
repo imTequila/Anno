@@ -7,7 +7,7 @@
 #include "mesh.h"
 
 static mesh_t *
-build_mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> texcoords,
+buildMesh(std::vector<glm::vec3> positions, std::vector<glm::vec2> texcoords,
              std::vector<glm::vec3> normals, std::vector<glm::vec4> tangents,
              std::vector<glm::vec4> joints, std::vector<glm::vec4> weights,
              std::vector<int> position_indices,
@@ -66,7 +66,7 @@ build_mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> texcoords,
   return mesh;
 }
 
-static mesh_t *load_obj(std::string filename) {
+static mesh_t *loadObj(std::string filename) {
   std::vector<glm::vec3> positions;
   std::vector<glm::vec2> texcoords;
   std::vector<glm::vec3> normals;
@@ -81,7 +81,7 @@ static mesh_t *load_obj(std::string filename) {
   FILE *file;
 
   file = fopen(filename.c_str(), "rb");
-  assert(file != NULL);
+  assert(file != nullptr);
   while (1) {
     int items;
     if (fgets(line, 256, file) == NULL) {
@@ -136,20 +136,20 @@ static mesh_t *load_obj(std::string filename) {
   }
   fclose(file);
 
-  mesh = build_mesh_t(positions, texcoords, normals, tangents, joints, weights,
+  mesh = buildMesh(positions, texcoords, normals, tangents, joints, weights,
                       position_indices, texcoord_indices, normal_indices);
 
   return mesh;
 }
 
-mesh_t *load_mesh(std::string filename) {
+mesh_t *loadMesh(std::string filename) {
   std::string extension = "";
   size_t last_dot = filename.find_last_of('.');
   if (last_dot != std::string::npos) {
     extension = filename.substr(last_dot + 1);
   }
   if (extension == "obj")
-    return load_obj(filename);
+    return loadObj(filename);
   else {
     assert(0);
     return NULL;

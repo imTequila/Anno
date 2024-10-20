@@ -3,6 +3,7 @@ layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec2 aTex;
 layout(location = 2) in vec3 aNor;
 layout(location = 3) in vec4 aTan;
+
 uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;

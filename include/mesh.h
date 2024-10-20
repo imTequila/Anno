@@ -24,6 +24,6 @@ public:
   int num_faces;
 };
 
-mesh_t *load_mesh(std::string filename);
+mesh_t *loadMesh(std::string filename);
 
 #endif

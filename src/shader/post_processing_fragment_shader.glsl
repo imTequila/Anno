@@ -177,7 +177,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
         DiffDepth[i] = -1;
       }
 
-      if (DiffDepth[i] > 0.01) FoundAny = true;
+      if (DiffDepth[i] > 0.01 && DiffDepth[i] < 1) FoundAny = true;
     }
 
     if (FoundAny) {
@@ -185,21 +185,21 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
       float DepthDiff1 = DiffDepth[3];
       float Time0 = 3;
 
-      if ( DiffDepth[2] > 0.01 )
+      if ( DiffDepth[2] > 0.01 && DiffDepth[2] < 1)
       {
           DepthDiff0 = DiffDepth[1];
           DepthDiff1 = DiffDepth[2];
           Time0 = 2;
       }
 
-      if ( DiffDepth[1] > 0.01 )
+      if ( DiffDepth[1] > 0.01 && DiffDepth[1] < 1)
       {
           DepthDiff0 = DiffDepth[0];
           DepthDiff1 = DiffDepth[1];
           Time0 = 1;
       }
 
-      if ( DiffDepth[0] > 0.01 )
+      if ( DiffDepth[0] > 0.01 && DiffDepth[0] < 1)
       {
           DepthDiff0 = LastDiff;
           DepthDiff1 = DiffDepth[0];

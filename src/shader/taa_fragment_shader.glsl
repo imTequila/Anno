@@ -75,9 +75,9 @@ vec3 ClipAABB(vec3 nowColor, vec3 preColor)
         }
     }
 
-    // Variance clip
+    // variance clip
     const int N = 9;
-    const float CLIP_GAMMA = 1.0f;
+    const float CLIP_GAMMA = 1.2f;
     vec3 mu = m1 / N;
     vec3 sigma = sqrt(abs(m2 / N - mu * mu));
     aabbMin = mu - CLIP_GAMMA * sigma;

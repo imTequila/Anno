@@ -334,7 +334,6 @@ void scene_t::drawSkybox(camera_t camera) {
   this->skybox_shader.setInt("uSkyboxMap", 0);
   this->skybox_shader.setMat4("uProjectionMatrix", skybox_projection);
   this->skybox_shader.setMat4("uViewMatrix", skybox_view);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   glEnable(GL_STENCIL_TEST);
   glStencilMask(0xff);
@@ -347,6 +346,10 @@ void scene_t::drawSkybox(camera_t camera) {
   glDrawArrays(GL_TRIANGLES, 0, 36);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LESS);
+
+  glStencilMask(0x00);
+  glDisable(GL_STENCIL_TEST);
+
 }
 
 void scene_t::configKullaConty() {
@@ -736,9 +739,8 @@ void scene_t::configDeferred() {
 
   glGenRenderbuffers(1, &this->post_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, this->post_rbo);
-  
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->post_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->post_rbo);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       std::cout << "Framebuffer not complete!" << std::endl;
@@ -930,7 +932,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, this->geometry_fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->post_fbo);
   glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
 
   /* post processing pass */
@@ -972,6 +974,8 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+  drawSkybox(camera);
+
   /* TAA pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->taa_fbo);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1011,8 +1015,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->final_shader.setInt("uCurFrame", 0);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-  drawSkybox(camera);
 
   frame_idx ++;
   pre_projection = projection;

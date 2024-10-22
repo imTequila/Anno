@@ -6,9 +6,9 @@ lighting:
 materials 2:
     material 0:
         basecolor_factor: 1 1 1 1
-        metalness_factor: 0.1
-        roughness_factor: 0.8
-        basecolor_map: common/checker.tga
+        metalness_factor: 0.9
+        roughness_factor: 0.4
+        basecolor_map: null
         metalness_map: null
         roughness_map: null
         normal_map: null
@@ -20,8 +20,8 @@ materials 2:
     material 1:
         basecolor_factor: 1 1 1 1
         metalness_factor: 0.1
-        roughness_factor: 0.1
-        basecolor_map: null
+        roughness_factor: 0.4
+        basecolor_map: common/checker.tga
         metalness_map: null
         roughness_map: null
         normal_map: null

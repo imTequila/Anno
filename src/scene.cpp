@@ -822,7 +822,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
     blend = 1.0;
   }
 
-  glm::vec3 light_pos(0.0f, 0.0f, 3.0f);
+  glm::vec3 light_pos(0.0f, 10.0f, 0.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
@@ -967,6 +967,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uBRDFLut_ibl", 5);
   this->post_shader.setInt("uPrefilterMap", 6);
 
+  this->post_shader.setInt("uFrameCount", frame_idx);
   this->post_shader.setFloat("uBlend", blend);
   this->post_shader.setMat4("uViewMatrix", view);
   this->post_shader.setMat4("uProjectionMatrix", projection);

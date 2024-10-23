@@ -1,9 +1,11 @@
 #version 330 core
 in vec2 vTextureCoord;
-in mat4 vWorldToScreen;
 
 uniform vec3 uLightPos;
 uniform vec3 uCameraPos;
+
+uniform mat4 uWorldToScreen;
+uniform mat4 uLightWorldToScreen;
 
 uniform sampler2D uPosition;
 uniform sampler2D uNormal;
@@ -78,13 +80,13 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV, float roughness) {
 }
 
 vec2 GetScreenCoordinate(vec3 pos) {
-  vec4 screenCoor = vWorldToScreen * vec4(pos, 1.0);
+  vec4 screenCoor = uWorldToScreen * vec4(pos, 1.0);
   vec2 uv = (screenCoor.xy / screenCoor.w) * 0.5 + 0.5;
   return uv;
 }
 
 float GetDepth(vec3 pos) {
-  vec4 screenCoor = vWorldToScreen * vec4(pos, 1.0);
+  vec4 screenCoor = uWorldToScreen * vec4(pos, 1.0);
   return screenCoor.w;
 }
 
@@ -165,9 +167,16 @@ void main() {
   vec3 Fms = MultiScatterBRDF(NdotL, NdotV, roughness);
   vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
-  Lo += radiance * BRDF * NdotL;
+  float shadow = 1.0;
+  vec4 lightClipCoord = uLightWorldToScreen * vec4(position, 1.0);
+  vec3 lightScreenCoord = (lightClipCoord.xyz / lightClipCoord.w) * 0.5 + 0.5;
+  float shadowDepth = texture2D(uShadowMap, lightScreenCoord.xy).r;
+  if (shadowDepth < lightScreenCoord.z && lightScreenCoord.x > 0 && lightScreenCoord.x < 1 && lightScreenCoord.y > 0 && lightScreenCoord.y < 1) {
+    shadow = 0.0;
+  }
+
+  Lo += radiance * BRDF * NdotL * shadow;
   vec3 color = Lo;
   color += texture(uEmission, vTextureCoord).rgb;
-
   FragColor = vec4(color, 1.0);
 }

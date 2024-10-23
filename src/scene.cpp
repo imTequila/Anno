@@ -59,7 +59,7 @@ scene_t::scene_t(std::string filename) {
 
   shader_t shader_t3("../src/shader/shading_vertex_shader.glsl",
                      "../src/shader/shading_fragment_shader.glsl");
-  this->quad_shader = shader_t3;
+  this->shading_shader = shader_t3;
 
   shader_t shader_t4("../src/shader/post_processing_vertex_shader.glsl",
                      "../src/shader/post_processing_fragment_shader.glsl");
@@ -815,6 +815,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  glm::mat4 world_to_screen = projection * view;
 
   if (frame_idx == 0) {
     pre_projection = projection;
@@ -822,10 +823,11 @@ void scene_t::drawSceneDeferred(camera_t camera) {
     blend = 1.0;
   }
 
-  glm::vec3 light_pos(0.0f, 10.0f, 0.0f);
-  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::vec3 light_pos(-3.0f, 3.0f, 0.0f);
+  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+  glm::mat4 light_world_to_screen = light_projection * light_view;
 
   drawShadowMap(light_view, light_projection);
   
@@ -911,22 +913,22 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glActiveTexture(GL_TEXTURE9);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
   
-  this->quad_shader.use();
+  this->shading_shader.use();
 
-  this->quad_shader.setMat4("uViewMatrix", view);
-  this->quad_shader.setMat4("uProjectionMatrix", projection);
-  this->quad_shader.setVec3("uCameraPos", camera.Position);
-  this->quad_shader.setVec3("uLightPos", light_pos);
-  this->quad_shader.setInt("uPosition", 0);         /* needed in post processing */
-  this->quad_shader.setInt("uNormal", 1);           /* needed in post processing */
-  this->quad_shader.setInt("uBasecolor", 2);        /* needed in post processing */
-  this->quad_shader.setInt("uRMO", 3);              /* needed in post processing */
-  this->quad_shader.setInt("uEmission", 4);
-  this->quad_shader.setInt("uDepth", 5);            /* needed in post processing */
-  this->quad_shader.setInt("uBRDFLut", 6);
-  this->quad_shader.setInt("uEavgLut", 7);
-  this->quad_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
-  this->quad_shader.setInt("uShadowMap", 9);
+  this->shading_shader.setMat4("uWorldToScreen", world_to_screen);
+  this->shading_shader.setMat4("uLightWorldToScreen", light_world_to_screen);
+  this->shading_shader.setVec3("uCameraPos", camera.Position);
+  this->shading_shader.setVec3("uLightPos", light_pos);
+  this->shading_shader.setInt("uPosition", 0);         /* needed in post processing */
+  this->shading_shader.setInt("uNormal", 1);           /* needed in post processing */
+  this->shading_shader.setInt("uBasecolor", 2);        /* needed in post processing */
+  this->shading_shader.setInt("uRMO", 3);              /* needed in post processing */
+  this->shading_shader.setInt("uEmission", 4);
+  this->shading_shader.setInt("uDepth", 5);            /* needed in post processing */
+  this->shading_shader.setInt("uBRDFLut", 6);
+  this->shading_shader.setInt("uEavgLut", 7);
+  this->shading_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
+  this->shading_shader.setInt("uShadowMap", 9);
   
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

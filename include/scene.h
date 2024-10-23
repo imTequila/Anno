@@ -21,7 +21,7 @@ public:
   shader_t geometry_shader;
   shader_t skybox_shader;
   shader_t shadow_shader;
-  shader_t quad_shader;
+  shader_t shading_shader;
   shader_t post_shader;
   shader_t taa_shader;
   shader_t final_shader;

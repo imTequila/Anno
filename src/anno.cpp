@@ -7,11 +7,11 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
-#include "camera.h"
-#include "mesh.h"
-#include "model.h"
-#include "scene.h"
-#include "shader.h"
+#include "camera.hpp"
+#include "mesh.hpp"
+#include "model.hpp"
+#include "scene.hpp"
+#include "shader.hpp"
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 1080;

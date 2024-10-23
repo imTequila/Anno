@@ -1,4 +1,3 @@
-#include "scene.h"
 #include <cassert>
 #include <cstring>
 #include <ext/matrix_clip_space.hpp>
@@ -6,6 +5,8 @@
 #include <glad/glad.h>
 #include <iostream>
 #include <stb_image.h>
+
+#include "scene.hpp"
 
 #define LINE_SIZE 256
 #define PI 3.1415926f

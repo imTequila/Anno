@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "mesh.h"
+#include "mesh.hpp"
 
 static mesh_t *
 buildMesh(std::vector<glm::vec3> positions, std::vector<glm::vec2> texcoords,

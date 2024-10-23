@@ -3,7 +3,7 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
-#include "model.h"
+#include "model.hpp"
 
 model_t::model_t(mesh_t *mesh, material_t *material, glm::mat4 transform) {
   this->mesh = mesh;

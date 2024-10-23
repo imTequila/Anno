@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "model.h"
-#include "shader.h"
-#include "camera.h"
+#include "model.hpp"
+#include "shader.hpp"
+#include "camera.hpp"
 
 class scene_t {
 public:

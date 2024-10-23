@@ -13,6 +13,7 @@ uniform samplerCube uPrefilterMap;
 
 uniform vec3 uCameraPos;
 uniform float uBlend;
+uniform int uFrameCount;
 
 out vec4 FragColor;
 
@@ -177,7 +178,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
         DiffDepth[i] = -1;
       }
 
-      if (DiffDepth[i] > 0.01) FoundAny = true;
+      if (DiffDepth[i] > 0.01 && DiffDepth[i] < 1) FoundAny = true;
     }
 
     if (FoundAny) {
@@ -185,21 +186,21 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
       float DepthDiff1 = DiffDepth[3];
       float Time0 = 3;
 
-      if ( DiffDepth[2] > 0.01 )
+      if ( DiffDepth[2] > 0.01 && DiffDepth[2] < 1)
       {
           DepthDiff0 = DiffDepth[1];
           DepthDiff1 = DiffDepth[2];
           Time0 = 2;
       }
 
-      if ( DiffDepth[1] > 0.01 )
+      if ( DiffDepth[1] > 0.01 && DiffDepth[1] < 1)
       {
           DepthDiff0 = DiffDepth[0];
           DepthDiff1 = DiffDepth[1];
           Time0 = 1;
       }
 
-      if ( DiffDepth[0] > 0.01 )
+      if ( DiffDepth[0] > 0.01 && DiffDepth[0] < 1)
       {
           DepthDiff0 = LastDiff;
           DepthDiff1 = DiffDepth[0];
@@ -232,29 +233,6 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   return false;
 }
 
-vec2 GetClosestOffset() {
-  vec2 deltaRes = vec2(1.0 / 1080, 1.0 / 1080);
-  float closestDepth = 1.0f;
-  vec2 closestUV = vTextureCoord;
-
-  for(int i = -1; i <= 1; ++i)
-  {
-    for(int j =- 1; j <= 1; ++j)
-    {
-      vec2 newUV = vTextureCoord + deltaRes * vec2(i, j);
-
-      float depth = texture2D(uDepth, newUV).x;
-
-      if(depth < closestDepth)
-      {
-        closestDepth = depth;
-        closestUV = newUV;
-      }
-    }
-  }
-  return closestUV;
-}
-
 void main() {
   vec3 position = texture2D(uPosition, vTextureCoord).rgb;
   vec3 N = texture2D(uNormal, vTextureCoord).rgb;
@@ -275,7 +253,7 @@ void main() {
   vec3 indirLo = vec3(0.0);
   uint total = 0u;
   
-  uvec2 random = Rand3DPCG16( ivec3( vTextureCoord * 1080, 0 ) ).xy;
+  uvec2 random = Rand3DPCG16( ivec3( vTextureCoord * 1080, uFrameCount % 32 ) ).xy;
 
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
     vec2 xi = Hammersley16(i, SAMPLE_NUM, random);

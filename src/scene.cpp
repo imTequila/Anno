@@ -59,7 +59,7 @@ scene_t::scene_t(std::string filename) {
 
   shader_t shader_t3("../src/shader/shading_vertex_shader.glsl",
                      "../src/shader/shading_fragment_shader.glsl");
-  this->quad_shader = shader_t3;
+  this->shading_shader = shader_t3;
 
   shader_t shader_t4("../src/shader/post_processing_vertex_shader.glsl",
                      "../src/shader/post_processing_fragment_shader.glsl");
@@ -334,7 +334,6 @@ void scene_t::drawSkybox(camera_t camera) {
   this->skybox_shader.setInt("uSkyboxMap", 0);
   this->skybox_shader.setMat4("uProjectionMatrix", skybox_projection);
   this->skybox_shader.setMat4("uViewMatrix", skybox_view);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   glEnable(GL_STENCIL_TEST);
   glStencilMask(0xff);
@@ -347,6 +346,10 @@ void scene_t::drawSkybox(camera_t camera) {
   glDrawArrays(GL_TRIANGLES, 0, 36);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LESS);
+
+  glStencilMask(0x00);
+  glDisable(GL_STENCIL_TEST);
+
 }
 
 void scene_t::configKullaConty() {
@@ -736,9 +739,8 @@ void scene_t::configDeferred() {
 
   glGenRenderbuffers(1, &this->post_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, this->post_rbo);
-  
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->post_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->post_rbo);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       std::cout << "Framebuffer not complete!" << std::endl;
@@ -813,6 +815,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  glm::mat4 world_to_screen = projection * view;
 
   if (frame_idx == 0) {
     pre_projection = projection;
@@ -820,10 +823,11 @@ void scene_t::drawSceneDeferred(camera_t camera) {
     blend = 1.0;
   }
 
-  glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
-  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::vec3 light_pos(-3.0f, 3.0f, 0.0f);
+  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+  glm::mat4 light_world_to_screen = light_projection * light_view;
 
   drawShadowMap(light_view, light_projection);
   
@@ -909,28 +913,28 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glActiveTexture(GL_TEXTURE9);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
   
-  this->quad_shader.use();
+  this->shading_shader.use();
 
-  this->quad_shader.setMat4("uViewMatrix", view);
-  this->quad_shader.setMat4("uProjectionMatrix", projection);
-  this->quad_shader.setVec3("uCameraPos", camera.Position);
-  this->quad_shader.setVec3("uLightPos", light_pos);
-  this->quad_shader.setInt("uPosition", 0);         /* needed in post processing */
-  this->quad_shader.setInt("uNormal", 1);           /* needed in post processing */
-  this->quad_shader.setInt("uBasecolor", 2);        /* needed in post processing */
-  this->quad_shader.setInt("uRMO", 3);              /* needed in post processing */
-  this->quad_shader.setInt("uEmission", 4);
-  this->quad_shader.setInt("uDepth", 5);            /* needed in post processing */
-  this->quad_shader.setInt("uBRDFLut", 6);
-  this->quad_shader.setInt("uEavgLut", 7);
-  this->quad_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
-  this->quad_shader.setInt("uShadowMap", 9);
+  this->shading_shader.setMat4("uWorldToScreen", world_to_screen);
+  this->shading_shader.setMat4("uLightWorldToScreen", light_world_to_screen);
+  this->shading_shader.setVec3("uCameraPos", camera.Position);
+  this->shading_shader.setVec3("uLightPos", light_pos);
+  this->shading_shader.setInt("uPosition", 0);         /* needed in post processing */
+  this->shading_shader.setInt("uNormal", 1);           /* needed in post processing */
+  this->shading_shader.setInt("uBasecolor", 2);        /* needed in post processing */
+  this->shading_shader.setInt("uRMO", 3);              /* needed in post processing */
+  this->shading_shader.setInt("uEmission", 4);
+  this->shading_shader.setInt("uDepth", 5);            /* needed in post processing */
+  this->shading_shader.setInt("uBRDFLut", 6);
+  this->shading_shader.setInt("uEavgLut", 7);
+  this->shading_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
+  this->shading_shader.setInt("uShadowMap", 9);
   
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, this->geometry_fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->post_fbo);
   glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
 
   /* post processing pass */
@@ -965,12 +969,15 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uBRDFLut_ibl", 5);
   this->post_shader.setInt("uPrefilterMap", 6);
 
+  this->post_shader.setInt("uFrameCount", frame_idx);
   this->post_shader.setFloat("uBlend", blend);
   this->post_shader.setMat4("uViewMatrix", view);
   this->post_shader.setMat4("uProjectionMatrix", projection);
   this->post_shader.setVec3("uCameraPos", camera.Position);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  drawSkybox(camera);
 
   /* TAA pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->taa_fbo);
@@ -1011,8 +1018,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->final_shader.setInt("uCurFrame", 0);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-  drawSkybox(camera);
 
   frame_idx ++;
   pre_projection = projection;

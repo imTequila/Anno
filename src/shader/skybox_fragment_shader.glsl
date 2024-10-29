@@ -7,6 +7,5 @@ void main()
 {             
     vec3 color = textureLod(uSkyboxMap, vTextureCoord, 0.0).rgb;
     color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2)); /* linner to gamma */
     FragColor = vec4(color, 1.0);
 }

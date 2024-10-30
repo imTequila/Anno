@@ -130,9 +130,9 @@ void main() {
 
   float c = 0.05;
 
-  if (preUV.x < 0 || preUV.y < 0 || preUV.x > 1 || preUV.y > 1) {
-    c = 1.0;
-  }
+  // if (preUV.x < 0 || preUV.y < 0 || preUV.x > 1 || preUV.y > 1) {
+  //   c = 1.0;
+  // }
 
   curColor = c * curColor + (1.0 - c) * preColor;
 

@@ -133,26 +133,42 @@ float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScr
 	return RayStepFactor;
 }
 
+float MaxOutDistance(vec3 ori, vec3 dir) {
+  float maxOutDistance = 0;
+  maxOutDistance = dir.x > 0 ? (1 - ori.x) / dir.x : -ori.x / dir.x;
+  maxOutDistance = min(maxOutDistance, dir.y > 0 ? (1 - ori.y) / dir.y : -ori.y / dir.y);
+  maxOutDistance = min(maxOutDistance, dir.z > 0 ? (1 - ori.z) / dir.z : -ori.z / dir.z);
+  return maxOutDistance;
+}
+
 bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   const int total_step_times = 32 * 4 + 1;
   int cur_times = 1;
 
   ori += (0.01 * dir);
 
-  vec2 start_uv = GetScreenCoordinate(ori);       // texture space xy of start
-  vec2 end_uv = GetScreenCoordinate(ori + dir);   // texture space xy of end
+  vec4 start_clip = vWorldToScreen * vec4(ori, 1.0);
+  vec4 end_clip = vWorldToScreen * vec4(ori + dir, 1.0);
+
+  vec3 start_texture = (start_clip.xyz / start_clip.w) * 0.5 + 0.5;
+  vec3 end_texture = (end_clip.xyz / end_clip.w) * 0.5 + 0.5;
+  vec3 dir_texture = end_texture - start_texture;
+
+  float maxOutDistance = MaxOutDistance(start_texture, dir_texture);
+  // dir_texture *= maxOutDistance;
+  // end_texture = start_texture + dir_texture;
+
+  vec2 start_uv = start_texture.xy;   // texture space xy of start
+  vec2 end_uv = end_texture.xy;       // texture space xy of end
   vec2 step_uv = end_uv - start_uv;
 
-  float start_depth = (vWorldToScreen * vec4(ori, 1.0)).w;
-  float end_depth = (vWorldToScreen * vec4(ori + dir, 1.0)).w;
+  float start_depth = start_clip.w;
+  float end_depth = end_clip.w;
   float step_depth = end_depth - start_depth;
 
-  float factor = GetStepScreenFactorToClipAtScreenEdge((start_uv - 0.5) * 2, step_uv * 2);
-
   float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
-  float step = factor * 0.004 / len;
+  float step = 0.004 / len;
 
-  vec3 dir_step = dir * step;
   float LastDiff = 0;
 
   while (cur_times < total_step_times) {  

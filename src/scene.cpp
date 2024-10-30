@@ -667,7 +667,7 @@ void scene_t::configDeferred() {
 
   glGenTextures(1, &this->g_depth);
   glBindTexture(GL_TEXTURE_2D, this->g_depth);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -830,7 +830,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-  
+  glEnable(GL_CULL_FACE);
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
@@ -871,6 +871,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   }
   glStencilMask(0x00);
   glDisable(GL_STENCIL_TEST);
+  glDisable(GL_CULL_FACE);
 
   /* shading pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);

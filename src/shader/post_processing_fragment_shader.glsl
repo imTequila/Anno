@@ -143,35 +143,36 @@ float MaxOutDistance(vec3 ori, vec3 dir) {
 
 bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   const int total_step_times = 32 * 4 + 1;
-  int cur_times = 1;
+  int curTimes = 1;
 
   ori += (0.01 * dir);
 
-  vec4 start_clip = vWorldToScreen * vec4(ori, 1.0);
-  vec4 end_clip = vWorldToScreen * vec4(ori + dir, 1.0);
+  vec4 startClip = vWorldToScreen * vec4(ori, 1.0);
+  vec4 endClip = vWorldToScreen * vec4(ori + dir, 1.0);
 
-  vec3 start_texture = (start_clip.xyz / start_clip.w) * 0.5 + 0.5;
-  vec3 end_texture = (end_clip.xyz / end_clip.w) * 0.5 + 0.5;
-  vec3 dir_texture = end_texture - start_texture;
+  vec3 startTexture = (startClip.xyz / startClip.w) * 0.5 + 0.5;
+  vec3 endTexture = (endClip.xyz / endClip.w) * 0.5 + 0.5;
+  vec3 dirTexture = endTexture - startTexture;
 
-  float maxOutDistance = MaxOutDistance(start_texture, dir_texture);
-  // dir_texture *= maxOutDistance;
-  // end_texture = start_texture + dir_texture;
+  float maxOutDistance = MaxOutDistance(startTexture, dirTexture);
+  endTexture = startTexture + maxOutDistance * dirTexture;
 
-  vec2 start_uv = start_texture.xy;   // texture space xy of start
-  vec2 end_uv = end_texture.xy;       // texture space xy of end
-  vec2 step_uv = end_uv - start_uv;
+  vec2 startUV = startTexture.xy;   // texture space xy of start
+  vec2 endUV = endTexture.xy;       // texture space xy of end
+  vec2 stepUV = endUV - startUV;
 
-  float start_depth = start_clip.w;
-  float end_depth = end_clip.w;
-  float step_depth = end_depth - start_depth;
+  vec2 pixelDistance = endUV * vec2(1080, 1080) - startUV * vec2(1080, 1080);
+  float maxDistance = min(abs(pixelDistance.x), abs(pixelDistance.y));
 
-  float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
-  float step = 0.004 / len;
+  float startDepth = startClip.w;
+  float endDepth = endClip.w;
+  float stepDepth = endDepth - startDepth;
+
+  float step = 1.0 / maxDistance;
 
   float LastDiff = 0;
 
-  while (cur_times < total_step_times) {  
+  while (curTimes < total_step_times) {  
 		vec2 SamplesUV[4];
 		float SamplesZ[4];
 		float SamplesDepth[4];
@@ -180,8 +181,8 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
     bool OutBoundary = false;
 
     for (int i = 0; i < 4; i++) {
-      SamplesUV[i] = start_uv + (cur_times + i) * (step * step_uv);
-      SamplesZ[i] = start_depth + (cur_times + i) * (step * step_depth);
+      SamplesUV[i] = startUV + (curTimes + i) * (step * stepUV);
+      SamplesZ[i] = startDepth + (curTimes + i) * (step * stepDepth);
       SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
       DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
       
@@ -222,28 +223,28 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
           DepthDiff1 = DiffDepth[0];
           Time0 = 0;
       }
-      Time0 += float(cur_times);
+      Time0 += float(curTimes);
       float Time1 = Time0 + 1;
       float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
       float IntersectTime = Time0 + TimeLerp;
-      hit =  start_uv + IntersectTime * step_uv * step;
+      hit =  startUV + IntersectTime * stepUV * step;
       if (texture2D(uDepth, hit).r >= 0.001) {
         return true;
       }
     }
     if (OutBoundary) return false;
-    cur_times += 4;
+    curTimes += 4;
   }
 
-  // while (cur_times < total_step_times) {
-  //   vec2 uv = start_uv + cur_times * (step_uv * step);
-  //   float depth = start_depth + cur_times * (step_depth * step);
+  // while (curTimes < total_step_times) {
+  //   vec2 uv = startUV + curTimes * (stepUV * step);
+  //   float depth = startDepth + curTimes * (stepDepth * step);
   //   float scene_depth = texture(uDepth, uv).r;
   //   if (depth - scene_depth > 0.001){
-  //     hit = ori + cur_times * dir_step;
+  //     hit = ori + curTimes * dir_step;
   //     return true;
   //   }
-  //   cur_times ++;
+  //   curTimes ++;
   // }
 
   return false;

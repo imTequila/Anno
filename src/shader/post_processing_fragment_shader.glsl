@@ -1,6 +1,5 @@
 #version 330 core
 in vec2 vTextureCoord;
-in mat4 vWorldToScreen;
 
 uniform sampler2D uShadingColor;
 uniform sampler2D uPosition;
@@ -10,6 +9,9 @@ uniform sampler2D uRMO;
 uniform sampler2D uNormal;
 uniform sampler2D uBRDFLut_ibl;
 uniform samplerCube uPrefilterMap;
+
+uniform mat4 uViewMatrix;
+uniform mat4 uWorldToScreen;
 
 uniform vec3 uCameraPos;
 uniform float uBlend;
@@ -25,13 +27,13 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
 } 
 
 vec2 GetScreenCoordinate(vec3 pos) {
-  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
+  vec4 screen_coor = uWorldToScreen * vec4(pos, 1.0);
   vec2 uv = (screen_coor.xy / screen_coor.w) * 0.5 + 0.5;
   return uv;
 }
 
 float GetDepth(vec3 pos) {
-  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
+  vec4 screen_coor = uWorldToScreen * vec4(pos, 1.0);
   return screen_coor.w;
 }
 
@@ -147,8 +149,16 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
 
   ori += (0.01 * dir);
 
-  vec4 startClip = vWorldToScreen * vec4(ori, 1.0);
-  vec4 endClip = vWorldToScreen * vec4(ori + dir, 1.0);
+  vec4 startClip = uWorldToScreen * vec4(ori, 1.0);
+
+  float fractor = 1.0;
+  vec4 endView = uViewMatrix * vec4(ori + dir, 1.0);
+  if (endView.z > 0)
+  {
+    float fractor = startClip.w / (startClip.w + endView.z + 1);
+  }
+
+  vec4 endClip = uWorldToScreen * vec4(ori + dir * fractor, 1.0);
 
   vec3 startTexture = (startClip.xyz / startClip.w) * 0.5 + 0.5;
   vec3 endTexture = (endClip.xyz / endClip.w) * 0.5 + 0.5;

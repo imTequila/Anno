@@ -102,12 +102,12 @@ int main() {
   }
   glEnable(GL_DEPTH_TEST);
   
-  glm::vec4 position(0.99, -1.29, 2.31, 1.0);
+  glm::vec4 position(0.99, -1.29, -0.2, 1.0);
   glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
-  auto result = projection * view * position;
+  auto result = projection * position;
   std::cout << result.x << "," << result.y << "," << result.z << "," << result.w << std::endl;
 
   /* prepare data  */

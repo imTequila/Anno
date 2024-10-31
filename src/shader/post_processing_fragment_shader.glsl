@@ -18,7 +18,7 @@ uniform int uFrameCount;
 out vec4 FragColor;
 
 const float PI = 3.14159265359;
-const float MAX_DIFF = 100;
+const float MAX_DIFF = 0.001;
 
 vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
@@ -157,45 +157,36 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   float maxOutDistance = MaxOutDistance(startTexture, dirTexture);
   endTexture = startTexture + maxOutDistance * dirTexture;
 
-  vec2 startUV = startTexture.xy;   // texture space xy of start
-  vec2 endUV = endTexture.xy;       // texture space xy of end
+  vec2 startUV = startTexture.xy;   
+  vec2 endUV = endTexture.xy;     
   vec2 stepUV = endUV - startUV;
 
+  /* TODO: change viewsize as uniform, current fixed 1080  */
   vec2 pixelDistance = endUV * vec2(1080, 1080) - startUV * vec2(1080, 1080);
-  float maxDistance = min(abs(pixelDistance.x), abs(pixelDistance.y));
+  float maxDistance = max(abs(pixelDistance.x), abs(pixelDistance.y));
 
-  float startDepth = startClip.w;
-  float endDepth = endClip.w;
+  float startDepth = startTexture.z;
+  float endDepth = endTexture.z;
   float stepDepth = endDepth - startDepth;
 
-  float step = 1.0 / maxDistance;
+  float step = 4.0 / maxDistance;
 
   float LastDiff = 0;
 
-  while (curTimes < total_step_times) {  
+  while (curTimes < total_step_times && curTimes < maxDistance) {  
 		vec2 SamplesUV[4];
 		float SamplesZ[4];
 		float SamplesDepth[4];
     float DiffDepth[4];
     bool FoundAny = false;
-    bool OutBoundary = false;
 
     for (int i = 0; i < 4; i++) {
       SamplesUV[i] = startUV + (curTimes + i) * (step * stepUV);
       SamplesZ[i] = startDepth + (curTimes + i) * (step * stepDepth);
       SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
       DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
-      
-      if (SamplesUV[i].x < 0 || SamplesUV[i].y < 0 || SamplesUV[i].x > 1 || SamplesUV[i].y > 1) {
-        OutBoundary = true;
-        DiffDepth[i] = -1;
-      }
 
-      if (SamplesDepth[i] < 0.01) {
-        DiffDepth[i] = -1;
-      }
-
-      if (DiffDepth[i] > 0.01 && DiffDepth[i] < 1) FoundAny = true;
+      if (DiffDepth[i] >= 0.0 && DiffDepth[i] < MAX_DIFF) FoundAny = true;
     }
 
     if (FoundAny) {
@@ -203,36 +194,38 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
       float DepthDiff1 = DiffDepth[3];
       float Time0 = 3;
 
-      if ( DiffDepth[2] > 0.01 && DiffDepth[2] < 1)
+      if ( DiffDepth[2] >= 0.0 && DiffDepth[2] < MAX_DIFF)
       {
           DepthDiff0 = DiffDepth[1];
           DepthDiff1 = DiffDepth[2];
           Time0 = 2;
       }
 
-      if ( DiffDepth[1] > 0.01 && DiffDepth[1] < 1)
+      if ( DiffDepth[1] >= 0.0 && DiffDepth[1] < MAX_DIFF)
       {
           DepthDiff0 = DiffDepth[0];
           DepthDiff1 = DiffDepth[1];
           Time0 = 1;
       }
 
-      if ( DiffDepth[0] > 0.01 && DiffDepth[0] < 1)
+      if ( DiffDepth[0] >= 0.0 && DiffDepth[0] < MAX_DIFF)
       {
           DepthDiff0 = LastDiff;
           DepthDiff1 = DiffDepth[0];
           Time0 = 0;
       }
+
       Time0 += float(curTimes);
       float Time1 = Time0 + 1;
       float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
       float IntersectTime = Time0 + TimeLerp;
       hit =  startUV + IntersectTime * stepUV * step;
-      if (texture2D(uDepth, hit).r >= 0.001) {
+
+      if (texture2D(uDepth, hit).r > 0 && hit.x > 0 && hit.y > 0 && hit.x < 1 && hit.y < 1) {
         return true;
       }
     }
-    if (OutBoundary) return false;
+
     curTimes += 4;
   }
 

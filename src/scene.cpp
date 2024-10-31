@@ -814,7 +814,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
     blend = 1.0;
   }
 
-  glm::vec3 light_pos(0.0f, 5.0f, 0.0f);
+  glm::vec3 light_pos(0.0f, 5.0f, 5.0f);
   glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::cross(light_pos, light_pos + glm::vec3(1.0, 1.0, 1.0)));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);

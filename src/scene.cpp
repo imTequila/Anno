@@ -957,7 +957,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uPrefilterMap", 6);
 
   this->post_shader.setInt("uFrameCount", frame_idx);
-  this->post_shader.setFloat("uBlend", blend);
   this->post_shader.setMat4("uViewMatrix", view);
   this->post_shader.setMat4("uWorldToScreen", projection * view);
   this->post_shader.setVec3("uCameraPos", camera.Position);

@@ -14,7 +14,6 @@ uniform mat4 uViewMatrix;
 uniform mat4 uWorldToScreen;
 
 uniform vec3 uCameraPos;
-uniform float uBlend;
 uniform int uFrameCount;
 
 out vec4 FragColor;
@@ -155,7 +154,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   vec4 endView = uViewMatrix * vec4(ori + dir, 1.0);
   if (endView.z > 0)
   {
-    float fractor = startClip.w / (startClip.w + endView.z + 1);
+    fractor = startClip.w / (startClip.w + endView.z + 1);
   }
 
   vec4 endClip = uWorldToScreen * vec4(ori + dir * fractor, 1.0);
@@ -165,6 +164,8 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   vec3 dirTexture = endTexture - startTexture;
 
   float maxOutDistance = MaxOutDistance(startTexture, dirTexture);
+  if (maxOutDistance < 0) return false;
+
   endTexture = startTexture + maxOutDistance * dirTexture;
 
   vec2 startUV = startTexture.xy;   
@@ -184,9 +185,9 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   float LastDiff = 0;
 
   while (curTimes < total_step_times && curTimes < maxDistance) {  
-		vec2 SamplesUV[4];
-		float SamplesZ[4];
-		float SamplesDepth[4];
+    vec2 SamplesUV[4];
+    float SamplesZ[4];
+    float SamplesDepth[4];
     float DiffDepth[4];
     bool FoundAny = false;
 

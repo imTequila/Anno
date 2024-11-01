@@ -182,55 +182,55 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
 
   float step = 4.0 / maxDistance;
 
-  float LastDiff = 0;
+  float lastDiff = 0;
 
   while (curTimes < total_step_times && curTimes < maxDistance) {  
-    vec2 SamplesUV[4];
-    float SamplesZ[4];
-    float SamplesDepth[4];
-    float DiffDepth[4];
+    vec2 samplesUV[4];
+    float samplesZ[4];
+    float samplesDepth[4];
+    float diffDepth[4];
     bool FoundAny = false;
 
     for (int i = 0; i < 4; i++) {
-      SamplesUV[i] = startUV + (curTimes + i) * (step * stepUV);
-      SamplesZ[i] = startDepth + (curTimes + i) * (step * stepDepth);
-      SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
-      DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
+      samplesUV[i] = startUV + (curTimes + i) * (step * stepUV);
+      samplesZ[i] = startDepth + (curTimes + i) * (step * stepDepth);
+      samplesDepth[i] = texture(uDepth, samplesUV[i]).r;
+      diffDepth[i] = samplesZ[i] - samplesDepth[i];
 
-      if (DiffDepth[i] >= 0.0 && DiffDepth[i] < MAX_DIFF) FoundAny = true;
+      if (diffDepth[i] >= 0.0 && diffDepth[i] < MAX_DIFF) FoundAny = true;
     }
 
     if (FoundAny) {
-      float DepthDiff0 = DiffDepth[2];
-      float DepthDiff1 = DiffDepth[3];
-      float Time0 = 3;
+      float depthDiff0 = diffDepth[2];
+      float depthDiff1 = diffDepth[3];
+      float time0 = 3;
 
-      if ( DiffDepth[2] >= 0.0 && DiffDepth[2] < MAX_DIFF)
+      if ( diffDepth[2] >= 0.0 && diffDepth[2] < MAX_DIFF)
       {
-          DepthDiff0 = DiffDepth[1];
-          DepthDiff1 = DiffDepth[2];
-          Time0 = 2;
+          depthDiff0 = diffDepth[1];
+          depthDiff1 = diffDepth[2];
+          time0 = 2;
       }
 
-      if ( DiffDepth[1] >= 0.0 && DiffDepth[1] < MAX_DIFF)
+      if ( diffDepth[1] >= 0.0 && diffDepth[1] < MAX_DIFF)
       {
-          DepthDiff0 = DiffDepth[0];
-          DepthDiff1 = DiffDepth[1];
-          Time0 = 1;
+          depthDiff0 = diffDepth[0];
+          depthDiff1 = diffDepth[1];
+          time0 = 1;
       }
 
-      if ( DiffDepth[0] >= 0.0 && DiffDepth[0] < MAX_DIFF)
+      if ( diffDepth[0] >= 0.0 && diffDepth[0] < MAX_DIFF)
       {
-          DepthDiff0 = LastDiff;
-          DepthDiff1 = DiffDepth[0];
-          Time0 = 0;
+          depthDiff0 = lastDiff;
+          depthDiff1 = diffDepth[0];
+          time0 = 0;
       }
 
-      Time0 += float(curTimes);
-      float Time1 = Time0 + 1;
-      float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
-      float IntersectTime = Time0 + TimeLerp;
-      hit =  startUV + IntersectTime * stepUV * step;
+      time0 += float(curTimes);
+      float time1 = time0 + 1;
+      float timeLerp = clamp(abs(depthDiff0) / (abs(depthDiff0) + abs(depthDiff1)), 0.0, 1.0);
+      float intersectTime = time0 + timeLerp;
+      hit =  startUV + intersectTime * stepUV * step;
 
       if (texture2D(uDepth, hit).r > 0 && hit.x > 0 && hit.y > 0 && hit.x < 1 && hit.y < 1) {
         return true;

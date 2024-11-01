@@ -188,8 +188,8 @@ glm::mat4 scene_t::readTransform(FILE *file) {
   items = fscanf(file, " transform %d:", &index);
   assert(items == 1);
   for (int i = 0; i < 4; i++) {
-    items = fscanf(file, " %f %f %f %f", &transform[i][0], &transform[i][1],
-                   &transform[i][2], &transform[i][3]);
+    items = fscanf(file, " %f %f %f %f", &transform[0][i], &transform[1][i],
+                   &transform[2][i], &transform[3][i]);
     assert(items == 4);
   }
 
@@ -534,12 +534,7 @@ void scene_t::drawShadowMap(glm::mat4 light_view, glm::mat4 light_projection) {
   this->shadow_shader.setMat4("uProjectionMatrix", light_projection);
   
   for (int i = 0; i < this->models.size(); i++) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                            this->models[i]->transform[1][3],
-                                            this->models[i]->transform[2][3]));
+    glm::mat4 model = this->models[i]->transform;
     
     this->shadow_shader.setMat4("uModelMatrix", model);
     this->models[i]->draw();
@@ -594,12 +589,7 @@ void scene_t::drawSceneForward(camera_t camera) {
   this->shader.setInt("uShadowMap", 10);
 
   for (int i = 0; i < this->models.size(); i++) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                            this->models[i]->transform[1][3],
-                                            this->models[i]->transform[2][3]));
+    glm::mat4 model = this->models[i]->transform;
 
     this->shader.setMat4("uModelMatrix", model);
     this->shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
@@ -677,7 +667,7 @@ void scene_t::configDeferred() {
 
   glGenTextures(1, &this->g_depth);
   glBindTexture(GL_TEXTURE_2D, this->g_depth);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -824,8 +814,8 @@ void scene_t::drawSceneDeferred(camera_t camera) {
     blend = 1.0;
   }
 
-  glm::vec3 light_pos(-3.0f, 3.0f, 0.0f);
-  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+  glm::vec3 light_pos(0.0f, 5.0f, 5.0f);
+  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::cross(light_pos, light_pos + glm::vec3(1.0, 1.0, 1.0)));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
   glm::mat4 light_world_to_screen = light_projection * light_view;
@@ -840,7 +830,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-  
+  glEnable(GL_CULL_FACE);
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
@@ -855,12 +845,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->geometry_shader.setInt("uEmissionMap", 5);
 
   for (int i = 0; i < this->models.size(); i++) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                            this->models[i]->transform[1][3],
-                                            this->models[i]->transform[2][3]));
+    glm::mat4 model = this->models[i]->transform;
 
     this->geometry_shader.setMat4("uModelMatrix", model);
     this->geometry_shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
@@ -886,6 +871,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   }
   glStencilMask(0x00);
   glDisable(GL_STENCIL_TEST);
+  glDisable(GL_CULL_FACE);
 
   /* shading pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);
@@ -971,9 +957,8 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uPrefilterMap", 6);
 
   this->post_shader.setInt("uFrameCount", frame_idx);
-  this->post_shader.setFloat("uBlend", blend);
   this->post_shader.setMat4("uViewMatrix", view);
-  this->post_shader.setMat4("uProjectionMatrix", projection);
+  this->post_shader.setMat4("uWorldToScreen", projection * view);
   this->post_shader.setVec3("uCameraPos", camera.Position);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

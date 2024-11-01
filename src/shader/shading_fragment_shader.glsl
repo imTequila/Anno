@@ -175,7 +175,7 @@ void main() {
     shadow = 0.0;
   }
 
-  Lo += radiance * BRDF * NdotL * shadow;
+  Lo += radiance * BRDF * NdotL;
   vec3 color = Lo;
   color += texture(uEmission, vTextureCoord).rgb;
   FragColor = vec4(color, 1.0);

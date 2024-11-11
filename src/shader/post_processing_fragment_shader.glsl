@@ -2,6 +2,7 @@
 in vec2 vTextureCoord;
 
 uniform sampler2D uShadingColor;
+uniform sampler2D uPreFrame;
 uniform sampler2D uPosition;
 uniform sampler2D uDepth;
 uniform sampler2D uBaseColor;
@@ -9,6 +10,7 @@ uniform sampler2D uRMO;
 uniform sampler2D uNormal;
 uniform sampler2D uBRDFLut_ibl;
 uniform samplerCube uPrefilterMap;
+uniform sampler2D uVelocity;
 
 uniform mat4 uViewMatrix;
 uniform mat4 uWorldToScreen;
@@ -272,7 +274,8 @@ void main() {
     vec2 hit;
     if (RayMarch(position, sampleVector, hit)) {
       vec2 uv = hit;
-      vec3 hitColor = texture2D(uShadingColor, uv).rgb;
+      vec2 velocity = texture2D(uVelocity, uv).rg;
+      vec3 hitColor = texture2D(uPreFrame, uv + velocity).rgb;
 
       indirLo += (hitColor);
       total ++;

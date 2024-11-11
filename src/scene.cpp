@@ -931,6 +931,8 @@ void scene_t::drawSceneDeferred(camera_t camera) {
 
   glActiveTexture(GL_TEXTURE11);
   glBindTexture(GL_TEXTURE_2D, this->color_buffer);
+  glActiveTexture(GL_TEXTURE12);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, this->g_position);
   glActiveTexture(GL_TEXTURE1);
@@ -945,9 +947,13 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
+  glActiveTexture(GL_TEXTURE7);
+  glBindTexture(GL_TEXTURE_2D, this->g_velocity);
+
 
   this->post_shader.use();
   this->post_shader.setInt("uShadingColor", 11);
+  this->post_shader.setInt("uPreFrame", 12);
   this->post_shader.setInt("uPosition", 0);
   this->post_shader.setInt("uNormal", 1);
   this->post_shader.setInt("uBaseColor", 2);
@@ -955,6 +961,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uDepth", 4);
   this->post_shader.setInt("uBRDFLut_ibl", 5);
   this->post_shader.setInt("uPrefilterMap", 6);
+  this->post_shader.setInt("uVelocity", 7);
 
   this->post_shader.setInt("uFrameCount", frame_idx);
   this->post_shader.setMat4("uViewMatrix", view);

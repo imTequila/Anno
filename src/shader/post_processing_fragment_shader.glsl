@@ -26,14 +26,14 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
 } 
 
 vec2 GetScreenCoordinate(vec3 pos) {
-  vec4 screen_coor = uWorldToScreen * vec4(pos, 1.0);
-  vec2 uv = (screen_coor.xy / screen_coor.w) * 0.5 + 0.5;
+  vec4 screenCoor = uWorldToScreen * vec4(pos, 1.0);
+  vec2 uv = (screenCoor.xy / screenCoor.w) * 0.5 + 0.5;
   return uv;
 }
 
 float GetDepth(vec3 pos) {
-  vec4 screen_coor = uWorldToScreen * vec4(pos, 1.0);
-  return screen_coor.w;
+  vec4 screenCoor = uWorldToScreen * vec4(pos, 1.0);
+  return screenCoor.w;
 }
 
 uvec3 Rand3DPCG16(ivec3 p) {
@@ -239,18 +239,6 @@ bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
 
     curTimes += 4;
   }
-
-  // while (curTimes < total_step_times) {
-  //   vec2 uv = startUV + curTimes * (stepUV * step);
-  //   float depth = startDepth + curTimes * (stepDepth * step);
-  //   float scene_depth = texture(uDepth, uv).r;
-  //   if (depth - scene_depth > 0.001){
-  //     hit = ori + curTimes * dir_step;
-  //     return true;
-  //   }
-  //   curTimes ++;
-  // }
-
   return false;
 }
 

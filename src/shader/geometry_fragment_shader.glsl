@@ -36,7 +36,7 @@ layout (location = 6) out vec2 gVelocity;
 void main() {
     
   gPosition = vFragPos;
-  gDepth = vDepth;
+  gDepth = gl_FragCoord.z;
 
   vec3 N = normalize(vNormal);
   if (uEnableBump == 1) {

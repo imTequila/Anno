@@ -1,4 +1,4 @@
-#include "shader.h"
+#include "shader.hpp"
 
 shader_t::shader_t(const char *vertexPath, const char *fragmentPath,
                    const char *geometryPath) {

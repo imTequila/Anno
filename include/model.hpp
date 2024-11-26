@@ -2,8 +2,9 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include "mesh.h"
 #include <ext/matrix_float4x4.hpp>
+
+#include "mesh.hpp"
 
 class material_t {
 public:

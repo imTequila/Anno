@@ -21,7 +21,7 @@ materials 2:
     material 1:
         basecolor_factor: 1 1 1 1
         metalness_factor: 1
-        roughness_factor: 0.1
+        roughness_factor: 0.3
         basecolor_map: null
         metalness_map: null
         roughness_map: null
@@ -32,10 +32,15 @@ materials 2:
         enable_blend: off
         alpha_cutoff: 0
 
-transforms 1:
+transforms 2:
     transform 0:
         1  0  0  0
         0  1  0  0
+        0  0  1  0
+        0  0  0  1
+    transform 1:
+        1  0  0  -6
+        0  1  0  -2
         0  0  1  0
         0  0  0  1
 
@@ -51,4 +56,4 @@ models 2:
         skeleton: null
         attached: -1
         material: 1
-        transform: 0
+        transform: 1

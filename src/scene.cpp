@@ -1,4 +1,3 @@
-#include "scene.h"
 #include <cassert>
 #include <cstring>
 #include <ext/matrix_clip_space.hpp>
@@ -6,6 +5,8 @@
 #include <glad/glad.h>
 #include <iostream>
 #include <stb_image.h>
+
+#include "scene.hpp"
 
 #define LINE_SIZE 256
 #define PI 3.1415926f
@@ -59,7 +60,7 @@ scene_t::scene_t(std::string filename) {
 
   shader_t shader_t3("../src/shader/shading_vertex_shader.glsl",
                      "../src/shader/shading_fragment_shader.glsl");
-  this->quad_shader = shader_t3;
+  this->shading_shader = shader_t3;
 
   shader_t shader_t4("../src/shader/post_processing_vertex_shader.glsl",
                      "../src/shader/post_processing_fragment_shader.glsl");
@@ -187,8 +188,8 @@ glm::mat4 scene_t::readTransform(FILE *file) {
   items = fscanf(file, " transform %d:", &index);
   assert(items == 1);
   for (int i = 0; i < 4; i++) {
-    items = fscanf(file, " %f %f %f %f", &transform[i][0], &transform[i][1],
-                   &transform[i][2], &transform[i][3]);
+    items = fscanf(file, " %f %f %f %f", &transform[0][i], &transform[1][i],
+                   &transform[2][i], &transform[3][i]);
     assert(items == 4);
   }
 
@@ -334,7 +335,6 @@ void scene_t::drawSkybox(camera_t camera) {
   this->skybox_shader.setInt("uSkyboxMap", 0);
   this->skybox_shader.setMat4("uProjectionMatrix", skybox_projection);
   this->skybox_shader.setMat4("uViewMatrix", skybox_view);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   glEnable(GL_STENCIL_TEST);
   glStencilMask(0xff);
@@ -347,6 +347,10 @@ void scene_t::drawSkybox(camera_t camera) {
   glDrawArrays(GL_TRIANGLES, 0, 36);
   glDepthMask(GL_TRUE);
   glDepthFunc(GL_LESS);
+
+  glStencilMask(0x00);
+  glDisable(GL_STENCIL_TEST);
+
 }
 
 void scene_t::configKullaConty() {
@@ -530,12 +534,7 @@ void scene_t::drawShadowMap(glm::mat4 light_view, glm::mat4 light_projection) {
   this->shadow_shader.setMat4("uProjectionMatrix", light_projection);
   
   for (int i = 0; i < this->models.size(); i++) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                            this->models[i]->transform[1][3],
-                                            this->models[i]->transform[2][3]));
+    glm::mat4 model = this->models[i]->transform;
     
     this->shadow_shader.setMat4("uModelMatrix", model);
     this->models[i]->draw();
@@ -590,12 +589,7 @@ void scene_t::drawSceneForward(camera_t camera) {
   this->shader.setInt("uShadowMap", 10);
 
   for (int i = 0; i < this->models.size(); i++) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                            this->models[i]->transform[1][3],
-                                            this->models[i]->transform[2][3]));
+    glm::mat4 model = this->models[i]->transform;
 
     this->shader.setMat4("uModelMatrix", model);
     this->shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
@@ -673,7 +667,7 @@ void scene_t::configDeferred() {
 
   glGenTextures(1, &this->g_depth);
   glBindTexture(GL_TEXTURE_2D, this->g_depth);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -736,9 +730,8 @@ void scene_t::configDeferred() {
 
   glGenRenderbuffers(1, &this->post_rbo);
   glBindRenderbuffer(GL_RENDERBUFFER, this->post_rbo);
-  
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->post_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->post_rbo);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
       std::cout << "Framebuffer not complete!" << std::endl;
@@ -813,6 +806,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glm::mat4 view = camera.getViewMatrix();
   glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), 
                                          (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  glm::mat4 world_to_screen = projection * view;
 
   if (frame_idx == 0) {
     pre_projection = projection;
@@ -820,10 +814,11 @@ void scene_t::drawSceneDeferred(camera_t camera) {
     blend = 1.0;
   }
 
-  glm::vec3 light_pos(0.0f, 25.0f, 0.0f);
-  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::vec3 light_pos(0.0f, 5.0f, 5.0f);
+  glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::cross(light_pos, light_pos + glm::vec3(1.0, 1.0, 1.0)));
   glm::mat4 light_projection = glm::perspective(glm::radians(camera.Zoom), 
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
+  glm::mat4 light_world_to_screen = light_projection * light_view;
 
   drawShadowMap(light_view, light_projection);
   
@@ -835,7 +830,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-  
+  glEnable(GL_CULL_FACE);
   this->geometry_shader.use();
   this->geometry_shader.setMat4("uViewMatrix", view);
   this->geometry_shader.setMat4("uProjectionMatrix", projection);
@@ -850,12 +845,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->geometry_shader.setInt("uEmissionMap", 5);
 
   for (int i = 0; i < this->models.size(); i++) {
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-    model = glm::rotate(model, 0.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(this->models[i]->transform[0][3],
-                                            this->models[i]->transform[1][3],
-                                            this->models[i]->transform[2][3]));
+    glm::mat4 model = this->models[i]->transform;
 
     this->geometry_shader.setMat4("uModelMatrix", model);
     this->geometry_shader.setVec4("uBasecolor", this->models[i]->material->basecolor_factor);
@@ -881,6 +871,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   }
   glStencilMask(0x00);
   glDisable(GL_STENCIL_TEST);
+  glDisable(GL_CULL_FACE);
 
   /* shading pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->shading_fbo);
@@ -909,28 +900,28 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glActiveTexture(GL_TEXTURE9);
   glBindTexture(GL_TEXTURE_2D, this->shadow_map);
   
-  this->quad_shader.use();
+  this->shading_shader.use();
 
-  this->quad_shader.setMat4("uViewMatrix", view);
-  this->quad_shader.setMat4("uProjectionMatrix", projection);
-  this->quad_shader.setVec3("uCameraPos", camera.Position);
-  this->quad_shader.setVec3("uLightPos", light_pos);
-  this->quad_shader.setInt("uPosition", 0);         /* needed in post processing */
-  this->quad_shader.setInt("uNormal", 1);           /* needed in post processing */
-  this->quad_shader.setInt("uBasecolor", 2);        /* needed in post processing */
-  this->quad_shader.setInt("uRMO", 3);              /* needed in post processing */
-  this->quad_shader.setInt("uEmission", 4);
-  this->quad_shader.setInt("uDepth", 5);            /* needed in post processing */
-  this->quad_shader.setInt("uBRDFLut", 6);
-  this->quad_shader.setInt("uEavgLut", 7);
-  this->quad_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
-  this->quad_shader.setInt("uShadowMap", 9);
+  this->shading_shader.setMat4("uWorldToScreen", world_to_screen);
+  this->shading_shader.setMat4("uLightWorldToScreen", light_world_to_screen);
+  this->shading_shader.setVec3("uCameraPos", camera.Position);
+  this->shading_shader.setVec3("uLightPos", light_pos);
+  this->shading_shader.setInt("uPosition", 0);         /* needed in post processing */
+  this->shading_shader.setInt("uNormal", 1);           /* needed in post processing */
+  this->shading_shader.setInt("uBasecolor", 2);        /* needed in post processing */
+  this->shading_shader.setInt("uRMO", 3);              /* needed in post processing */
+  this->shading_shader.setInt("uEmission", 4);
+  this->shading_shader.setInt("uDepth", 5);            /* needed in post processing */
+  this->shading_shader.setInt("uBRDFLut", 6);
+  this->shading_shader.setInt("uEavgLut", 7);
+  this->shading_shader.setInt("uBRDFLut_ibl", 8);      /* needed in post processing */
+  this->shading_shader.setInt("uShadowMap", 9);
   
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, this->geometry_fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->post_fbo);
   glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
 
   /* post processing pass */
@@ -940,6 +931,8 @@ void scene_t::drawSceneDeferred(camera_t camera) {
 
   glActiveTexture(GL_TEXTURE11);
   glBindTexture(GL_TEXTURE_2D, this->color_buffer);
+  glActiveTexture(GL_TEXTURE12);
+  glBindTexture(GL_TEXTURE_2D, this->pre_frame);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, this->g_position);
   glActiveTexture(GL_TEXTURE1);
@@ -954,9 +947,13 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   glBindTexture(GL_TEXTURE_2D, this->brdf_lut);
   glActiveTexture(GL_TEXTURE6);
   glBindTexture(GL_TEXTURE_CUBE_MAP, this->prefilter_map);
+  glActiveTexture(GL_TEXTURE7);
+  glBindTexture(GL_TEXTURE_2D, this->g_velocity);
+
 
   this->post_shader.use();
   this->post_shader.setInt("uShadingColor", 11);
+  this->post_shader.setInt("uPreFrame", 12);
   this->post_shader.setInt("uPosition", 0);
   this->post_shader.setInt("uNormal", 1);
   this->post_shader.setInt("uBaseColor", 2);
@@ -964,13 +961,16 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->post_shader.setInt("uDepth", 4);
   this->post_shader.setInt("uBRDFLut_ibl", 5);
   this->post_shader.setInt("uPrefilterMap", 6);
+  this->post_shader.setInt("uVelocity", 7);
 
-  this->post_shader.setFloat("uBlend", blend);
+  this->post_shader.setInt("uFrameCount", frame_idx);
   this->post_shader.setMat4("uViewMatrix", view);
-  this->post_shader.setMat4("uProjectionMatrix", projection);
+  this->post_shader.setMat4("uWorldToScreen", projection * view);
   this->post_shader.setVec3("uCameraPos", camera.Position);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  drawSkybox(camera);
 
   /* TAA pass */
   glBindFramebuffer(GL_FRAMEBUFFER, this->taa_fbo);
@@ -1011,8 +1011,6 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->final_shader.setInt("uCurFrame", 0);
   glBindVertexArray(this->quad_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-  drawSkybox(camera);
 
   frame_idx ++;
   pre_projection = projection;

@@ -1,8 +1,8 @@
 #version 330 core
 in vec2 vTextureCoord;
-in mat4 vWorldToScreen;
 
 uniform sampler2D uShadingColor;
+uniform sampler2D uPreFrame;
 uniform sampler2D uPosition;
 uniform sampler2D uDepth;
 uniform sampler2D uBaseColor;
@@ -10,28 +10,32 @@ uniform sampler2D uRMO;
 uniform sampler2D uNormal;
 uniform sampler2D uBRDFLut_ibl;
 uniform samplerCube uPrefilterMap;
+uniform sampler2D uVelocity;
+
+uniform mat4 uViewMatrix;
+uniform mat4 uWorldToScreen;
 
 uniform vec3 uCameraPos;
-uniform float uBlend;
+uniform int uFrameCount;
 
 out vec4 FragColor;
 
 const float PI = 3.14159265359;
-const float MAX_DIFF = 100;
+const float MAX_DIFF = 0.001;
 
 vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 } 
 
 vec2 GetScreenCoordinate(vec3 pos) {
-  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
-  vec2 uv = (screen_coor.xy / screen_coor.w) * 0.5 + 0.5;
+  vec4 screenCoor = uWorldToScreen * vec4(pos, 1.0);
+  vec2 uv = (screenCoor.xy / screenCoor.w) * 0.5 + 0.5;
   return uv;
 }
 
 float GetDepth(vec3 pos) {
-  vec4 screen_coor = vWorldToScreen * vec4(pos, 1.0);
-  return screen_coor.w;
+  vec4 screenCoor = uWorldToScreen * vec4(pos, 1.0);
+  return screenCoor.w;
 }
 
 uvec3 Rand3DPCG16(ivec3 p) {
@@ -132,127 +136,112 @@ float GetStepScreenFactorToClipAtScreenEdge(vec2 RayStartScreen, vec2 RayStepScr
 	return RayStepFactor;
 }
 
+float MaxOutDistance(vec3 ori, vec3 dir) {
+  float maxOutDistance = 0;
+  maxOutDistance = dir.x > 0 ? (1 - ori.x) / dir.x : -ori.x / dir.x;
+  maxOutDistance = min(maxOutDistance, dir.y > 0 ? (1 - ori.y) / dir.y : -ori.y / dir.y);
+  maxOutDistance = min(maxOutDistance, dir.z > 0 ? (1 - ori.z) / dir.z : -ori.z / dir.z);
+  return maxOutDistance;
+}
+
 bool RayMarch(vec3 ori, vec3 dir, out vec2 hit) {
   const int total_step_times = 32 * 4 + 1;
-  int cur_times = 1;
+  int curTimes = 1;
 
   ori += (0.01 * dir);
 
-  vec2 start_uv = GetScreenCoordinate(ori);       // texture space xy of start
-  vec2 end_uv = GetScreenCoordinate(ori + dir);   // texture space xy of end
-  vec2 step_uv = end_uv - start_uv;
+  vec4 startClip = uWorldToScreen * vec4(ori, 1.0);
 
-  float start_depth = (vWorldToScreen * vec4(ori, 1.0)).w;
-  float end_depth = (vWorldToScreen * vec4(ori + dir, 1.0)).w;
-  float step_depth = end_depth - start_depth;
+  float fractor = 1.0;
+  vec4 endView = uViewMatrix * vec4(ori + dir, 1.0);
+  if (endView.z > 0)
+  {
+    fractor = startClip.w / (startClip.w + endView.z + 1);
+  }
 
-  float factor = GetStepScreenFactorToClipAtScreenEdge((start_uv - 0.5) * 2, step_uv * 2);
+  vec4 endClip = uWorldToScreen * vec4(ori + dir * fractor, 1.0);
 
-  float len = sqrt(step_uv.x * step_uv.x + step_uv.y * step_uv.y);
-  float step = factor * 0.004 / len;
+  vec3 startTexture = (startClip.xyz / startClip.w) * 0.5 + 0.5;
+  vec3 endTexture = (endClip.xyz / endClip.w) * 0.5 + 0.5;
+  vec3 dirTexture = endTexture - startTexture;
 
-  vec3 dir_step = dir * step;
-  float LastDiff = 0;
+  float maxOutDistance = MaxOutDistance(startTexture, dirTexture);
+  if (maxOutDistance < 0) return false;
 
-  while (cur_times < total_step_times) {  
-		vec2 SamplesUV[4];
-		float SamplesZ[4];
-		float SamplesDepth[4];
-    float DiffDepth[4];
+  endTexture = startTexture + maxOutDistance * dirTexture;
+
+  vec2 startUV = startTexture.xy;   
+  vec2 endUV = endTexture.xy;     
+  vec2 stepUV = endUV - startUV;
+
+  /* TODO: change viewsize as uniform, current fixed 1080  */
+  vec2 pixelDistance = endUV * vec2(1080, 1080) - startUV * vec2(1080, 1080);
+  float maxDistance = max(abs(pixelDistance.x), abs(pixelDistance.y));
+
+  float startDepth = startTexture.z;
+  float endDepth = endTexture.z;
+  float stepDepth = endDepth - startDepth;
+
+  float step = 4.0 / maxDistance;
+
+  float lastDiff = 0;
+
+  while (curTimes < total_step_times && curTimes < maxDistance) {  
+    vec2 samplesUV[4];
+    float samplesZ[4];
+    float samplesDepth[4];
+    float diffDepth[4];
     bool FoundAny = false;
-    bool OutBoundary = false;
 
     for (int i = 0; i < 4; i++) {
-      SamplesUV[i] = start_uv + (cur_times + i) * (step * step_uv);
-      SamplesZ[i] = start_depth + (cur_times + i) * (step * step_depth);
-      SamplesDepth[i] = texture(uDepth, SamplesUV[i]).r;
-      DiffDepth[i] = SamplesZ[i] - SamplesDepth[i];
-      
-      if (SamplesUV[i].x < 0 || SamplesUV[i].y < 0 || SamplesUV[i].x > 1 || SamplesUV[i].y > 1) {
-        OutBoundary = true;
-        DiffDepth[i] = -1;
-      }
+      samplesUV[i] = startUV + (curTimes + i) * (step * stepUV);
+      samplesZ[i] = startDepth + (curTimes + i) * (step * stepDepth);
+      samplesDepth[i] = texture(uDepth, samplesUV[i]).r;
+      diffDepth[i] = samplesZ[i] - samplesDepth[i];
 
-      if (SamplesDepth[i] < 0.01) {
-        DiffDepth[i] = -1;
-      }
-
-      if (DiffDepth[i] > 0.01) FoundAny = true;
+      if (diffDepth[i] >= 0.0 && diffDepth[i] < MAX_DIFF) FoundAny = true;
     }
 
     if (FoundAny) {
-      float DepthDiff0 = DiffDepth[2];
-      float DepthDiff1 = DiffDepth[3];
-      float Time0 = 3;
+      float depthDiff0 = diffDepth[2];
+      float depthDiff1 = diffDepth[3];
+      float time0 = 3;
 
-      if ( DiffDepth[2] > 0.01 )
+      if ( diffDepth[2] >= 0.0 && diffDepth[2] < MAX_DIFF)
       {
-          DepthDiff0 = DiffDepth[1];
-          DepthDiff1 = DiffDepth[2];
-          Time0 = 2;
+          depthDiff0 = diffDepth[1];
+          depthDiff1 = diffDepth[2];
+          time0 = 2;
       }
 
-      if ( DiffDepth[1] > 0.01 )
+      if ( diffDepth[1] >= 0.0 && diffDepth[1] < MAX_DIFF)
       {
-          DepthDiff0 = DiffDepth[0];
-          DepthDiff1 = DiffDepth[1];
-          Time0 = 1;
+          depthDiff0 = diffDepth[0];
+          depthDiff1 = diffDepth[1];
+          time0 = 1;
       }
 
-      if ( DiffDepth[0] > 0.01 )
+      if ( diffDepth[0] >= 0.0 && diffDepth[0] < MAX_DIFF)
       {
-          DepthDiff0 = LastDiff;
-          DepthDiff1 = DiffDepth[0];
-          Time0 = 0;
+          depthDiff0 = lastDiff;
+          depthDiff1 = diffDepth[0];
+          time0 = 0;
       }
-      Time0 += float(cur_times);
-      float Time1 = Time0 + 1;
-      float TimeLerp = clamp(abs(DepthDiff0) / (abs(DepthDiff0) + abs(DepthDiff1)), 0.0, 1.0);
-      float IntersectTime = Time0 + TimeLerp;
-      hit =  start_uv + IntersectTime * step_uv * step;
-      if (texture2D(uDepth, hit).r >= 0.001) {
+
+      time0 += float(curTimes);
+      float time1 = time0 + 1;
+      float timeLerp = clamp(abs(depthDiff0) / (abs(depthDiff0) + abs(depthDiff1)), 0.0, 1.0);
+      float intersectTime = time0 + timeLerp;
+      hit =  startUV + intersectTime * stepUV * step;
+
+      if (texture2D(uDepth, hit).r > 0 && hit.x > 0 && hit.y > 0 && hit.x < 1 && hit.y < 1) {
         return true;
       }
     }
-    if (OutBoundary) return false;
-    cur_times += 4;
+
+    curTimes += 4;
   }
-
-  // while (cur_times < total_step_times) {
-  //   vec2 uv = start_uv + cur_times * (step_uv * step);
-  //   float depth = start_depth + cur_times * (step_depth * step);
-  //   float scene_depth = texture(uDepth, uv).r;
-  //   if (depth - scene_depth > 0.001){
-  //     hit = ori + cur_times * dir_step;
-  //     return true;
-  //   }
-  //   cur_times ++;
-  // }
-
   return false;
-}
-
-vec2 GetClosestOffset() {
-  vec2 deltaRes = vec2(1.0 / 1080, 1.0 / 1080);
-  float closestDepth = 1.0f;
-  vec2 closestUV = vTextureCoord;
-
-  for(int i = -1; i <= 1; ++i)
-  {
-    for(int j =- 1; j <= 1; ++j)
-    {
-      vec2 newUV = vTextureCoord + deltaRes * vec2(i, j);
-
-      float depth = texture2D(uDepth, newUV).x;
-
-      if(depth < closestDepth)
-      {
-        closestDepth = depth;
-        closestUV = newUV;
-      }
-    }
-  }
-  return closestUV;
 }
 
 void main() {
@@ -275,7 +264,7 @@ void main() {
   vec3 indirLo = vec3(0.0);
   uint total = 0u;
   
-  uvec2 random = Rand3DPCG16( ivec3( vTextureCoord * 1080, 0 ) ).xy;
+  uvec2 random = Rand3DPCG16( ivec3( vTextureCoord * 1080, uFrameCount % 32 ) ).xy;
 
   for(uint i = 0u; i < SAMPLE_NUM; i++) {
     vec2 xi = Hammersley16(i, SAMPLE_NUM, random);
@@ -285,7 +274,8 @@ void main() {
     vec2 hit;
     if (RayMarch(position, sampleVector, hit)) {
       vec2 uv = hit;
-      vec3 hitColor = texture2D(uShadingColor, uv).rgb;
+      vec2 velocity = texture2D(uVelocity, uv).rg;
+      vec3 hitColor = texture2D(uPreFrame, uv + velocity).rgb;
 
       indirLo += (hitColor);
       total ++;
@@ -304,8 +294,7 @@ void main() {
   vec3 indirColor = float(total) / float(SAMPLE_NUM) * ssr + float(SAMPLE_NUM - total) / float(SAMPLE_NUM) * ibl;
 
   vec3 color = texture(uShadingColor, vTextureCoord).rgb + indirColor;
-  color = color / (color + vec3(1.0));
-  color = pow(color, vec3(1.0 / 2.2));
+  color = color / (color + vec3(1.0)); // to LDR here?
 
   FragColor = vec4(color, 1.0);
 }

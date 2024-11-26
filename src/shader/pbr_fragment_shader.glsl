@@ -1,3 +1,7 @@
+/* 
+  forward pipeline, abandoned
+*/
+
 #version 330 core
 in vec2 vTextureCoord;
 in vec3 vNormal;

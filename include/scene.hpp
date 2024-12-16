@@ -21,6 +21,7 @@ public:
   shader_t geometry_shader;
   shader_t skybox_shader;
   shader_t shadow_shader;
+  shader_t SAT_shader;
   shader_t shading_shader;
   shader_t post_shader;
   shader_t taa_shader;
@@ -40,6 +41,11 @@ public:
 
   unsigned int shadow_map;
   unsigned int shadow_fbo;
+  unsigned int shadow_rbo;
+
+  unsigned int SAT_fbo;
+  unsigned int SAT_rbo;
+  unsigned int SAT_target;
 
   unsigned int geometry_fbo;
   unsigned int geometry_rbo;

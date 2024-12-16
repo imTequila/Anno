@@ -13,8 +13,8 @@
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 1080;
-const unsigned int SHADOW_WIDTH = 4080;
-const unsigned int SHADOW_HEIGHT = 4080;
+const unsigned int SHADOW_WIDTH = 512;
+const unsigned int SHADOW_HEIGHT = 512;
 
 glm::mat4 pre_view;
 glm::mat4 pre_projection;
@@ -79,6 +79,9 @@ scene_t::scene_t(std::string filename) {
   configIBL();
   configShadowMap();
   configDeferred();
+
+  float border[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+  glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);  
 }
 
 void scene_t::readLight(FILE *file) {
@@ -508,26 +511,61 @@ void scene_t::configIBL() {
 
 void scene_t::configShadowMap() {
   glGenFramebuffers(1, &this->shadow_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, this->shadow_fbo);
 
-  glGenTextures(1, &shadow_map);
-  glBindTexture(GL_TEXTURE_2D, shadow_map);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH,
-               SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+  glGenTextures(1, &this->shadow_map);
+  glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->shadow_map, 0);
+
+  glGenRenderbuffers(1, &this->shadow_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, this->shadow_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->shadow_rbo);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+      std::cout << "Framebuffer not complete!" << std::endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glGenFramebuffers(1, &this->SAT_fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, this->SAT_fbo);
+
+  glGenTextures(1, &this->SAT_target);
+  glBindTexture(GL_TEXTURE_2D, this->SAT_target);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->SAT_target, 0);
+
+  glGenRenderbuffers(1, &this->SAT_rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, this->SAT_rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->SAT_rbo);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+      std::cout << "Framebuffer not complete!" << std::endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   shader_t shader_t1("../src/shader/shadow_vertex_shader.glsl",
                         "../src/shader/shadow_fragment_shader.glsl");
   this->shadow_shader = shader_t1;
+
+  shader_t shader_t2("../src/shader/SAT_vertex_shader.glsl",
+                        "../src/shader/SAT_fragment_shader.glsl");
+  this->SAT_shader = shader_t2;
+
 }
 
 void scene_t::drawShadowMap(glm::mat4 light_view, glm::mat4 light_projection) {
   glBindFramebuffer(GL_FRAMEBUFFER, this->shadow_fbo);
-  glClear(GL_DEPTH_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->shadow_map, 0);
 
   this->shadow_shader.use();
   this->shadow_shader.setMat4("uViewMatrix", light_view);
@@ -539,6 +577,74 @@ void scene_t::drawShadowMap(glm::mat4 light_view, glm::mat4 light_projection) {
     this->shadow_shader.setMat4("uModelMatrix", model);
     this->models[i]->draw();
   }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, this->SAT_fbo);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+
+  this->SAT_shader.use();
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+
+  glm::vec2 shadow_size(SHADOW_WIDTH, SHADOW_HEIGHT);
+  this->SAT_shader.setVec2("uShadowSize", shadow_size);
+  const int samples = 8;
+  this->SAT_shader.setInt("uSamples", samples);
+  this->SAT_shader.setInt("uShadowMap", 0);
+  int times = 1;
+  for (int i = 1; i < SHADOW_WIDTH; i *= samples) {
+    glActiveTexture(GL_TEXTURE0);
+    if (times % 2 == 0) {
+      glBindTexture(GL_TEXTURE_2D, this->SAT_target); 
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->shadow_map, 0);
+    }
+    else {
+      glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->SAT_target, 0);
+    }
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glm::vec2 offset(i, 0);
+    this->SAT_shader.setVec2("uOffset", offset);
+    glBindVertexArray(this->quad_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    
+    times ++;
+  }
+
+  if (times % 2 == 0) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, this->SAT_fbo);
+    glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 0, 0, SHADOW_WIDTH, SHADOW_HEIGHT, 0);
+  }
+
+  times = 1;
+  for (int i = 1; i < SHADOW_HEIGHT; i *= samples) {
+    glActiveTexture(GL_TEXTURE0);
+    if (times % 2 == 0) {
+      glBindTexture(GL_TEXTURE_2D, this->SAT_target); 
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->shadow_map, 0);
+    }
+    else {
+      glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->SAT_target, 0);
+    }
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glm::vec2 offset(0, i);
+    this->SAT_shader.setVec2("uOffset", offset);
+    glBindVertexArray(this->quad_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    
+    times ++;
+  }
+  if (times % 2 == 0) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, this->SAT_fbo);
+    glBindTexture(GL_TEXTURE_2D, this->shadow_map);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 0, 0, SHADOW_WIDTH, SHADOW_HEIGHT, 0);
+  }
+
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -820,6 +926,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
                                                (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT, 1.0f, 50.0f);
   glm::mat4 light_world_to_screen = light_projection * light_view;
 
+  glDisable(GL_STENCIL_TEST);
   drawShadowMap(light_view, light_projection);
   
   glBindFramebuffer(GL_FRAMEBUFFER, this->geometry_fbo);
@@ -903,6 +1010,7 @@ void scene_t::drawSceneDeferred(camera_t camera) {
   this->shading_shader.use();
 
   this->shading_shader.setMat4("uWorldToScreen", world_to_screen);
+  this->shading_shader.setMat4("uLightView", light_view);
   this->shading_shader.setMat4("uLightWorldToScreen", light_world_to_screen);
   this->shading_shader.setVec3("uCameraPos", camera.Position);
   this->shading_shader.setVec3("uLightPos", light_pos);

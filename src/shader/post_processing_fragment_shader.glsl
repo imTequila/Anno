@@ -294,7 +294,7 @@ void main() {
   vec3 indirColor = float(total) / float(SAMPLE_NUM) * ssr + float(SAMPLE_NUM - total) / float(SAMPLE_NUM) * ibl;
 
   vec3 color = texture(uShadingColor, vTextureCoord).rgb + indirColor;
-  color = color / (color + vec3(1.0)); // to LDR here?
+  color = color / (color + vec3(1.0));
 
   FragColor = vec4(color, 1.0);
 }

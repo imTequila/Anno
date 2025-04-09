@@ -214,7 +214,7 @@ void main() {
   const float width = 16;
   const vec2 shadowOffset = vec2(width / shadowSize);
   const vec2 normalOffset = vec2(1.0 / shadowSize);
-  vec4 coords = vec4(lightScreenCoord.xy - shadowOffset - normalOffset, lightScreenCoord.xy + shadowOffset);
+  vec4 coords = vec4(lightScreenCoord.xy - shadowOffset- normalOffset, lightScreenCoord.xy + shadowOffset);
 
   if (coords.x <= 0 || coords.x >= 1 || coords.y <= 0 || coords.y >= 1 || coords.z <= 0 || coords.z >= 1 || coords.w <= 0 || coords.w >= 1) {
     shadow = 1.0;

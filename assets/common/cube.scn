@@ -34,7 +34,7 @@ materials 2:
 transforms 4:
     transform 0:
         1  0  0  0
-        0  1  0  -0.8
+        0  1  0  -0.7
         0  0  1  0
         0  0  0  1
     transform 1:

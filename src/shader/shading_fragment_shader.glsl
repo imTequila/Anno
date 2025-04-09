@@ -5,6 +5,7 @@ uniform vec3 uLightPos;
 uniform vec3 uCameraPos;
 
 uniform mat4 uWorldToScreen;
+uniform mat4 uLightView;
 uniform mat4 uLightWorldToScreen;
 
 uniform sampler2D uPosition;
@@ -23,6 +24,13 @@ uniform sampler2D uEavgLut;
 out vec4 FragColor;
 
 const float PI = 3.14159265359;
+
+const float g_DistributeFPFactor = 256;
+vec2 RecombineFP(vec4 Value)
+{
+    float FactorInv = 1 / g_DistributeFPFactor;
+    return (Value.zw * FactorInv + Value.xy);
+}
 
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
   float alpha2 = roughness * roughness * roughness * roughness;
@@ -123,6 +131,35 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
   return normalize(sampleVec);
 }
 
+vec4 sampleSAT(vec4 coords) {
+  vec4 nn = texture2D(uShadowMap, coords.xy);
+  vec4 np = texture2D(uShadowMap, coords.xw);
+  vec4 pn = texture2D(uShadowMap, coords.zy);
+  vec4 pp = texture2D(uShadowMap, coords.zw);
+  
+  return (pp - pn - np + nn);
+}
+
+float Luminance(vec3 color)
+{
+  return 0.25 * color.r + 0.5 * color.g + 0.25 * color.b;
+}
+
+vec3 ToneMap(vec3 color)
+{
+  return color / (1 + Luminance(color));
+}
+
+vec3 UnToneMap(vec3 color)
+{
+  return color / (1 - Luminance(color));
+}
+
+float linstep(float min, float max, float v)
+{
+    return clamp((v - min) / (max - min), 0, 1);
+}
+
 void main() {
   vec3 position = texture(uPosition, vTextureCoord).rgb;
 
@@ -168,15 +205,36 @@ void main() {
   vec3 BRDF = Fms + Fmicro + (kD * albedo / PI);
 
   float shadow = 1.0;
+  vec4 lightViewCoord = uLightView * vec4(position, 1.0);
   vec4 lightClipCoord = uLightWorldToScreen * vec4(position, 1.0);
   vec3 lightScreenCoord = (lightClipCoord.xyz / lightClipCoord.w) * 0.5 + 0.5;
-  float shadowDepth = texture2D(uShadowMap, lightScreenCoord.xy).r;
-  if (shadowDepth < lightScreenCoord.z && lightScreenCoord.x > 0 && lightScreenCoord.x < 1 && lightScreenCoord.y > 0 && lightScreenCoord.y < 1) {
-    shadow = 0.0;
+
+  float dist = length(lightViewCoord.xyz);
+  const int shadowSize = 512;
+  const float width = 16;
+  const vec2 shadowOffset = vec2(width / shadowSize);
+  const vec2 normalOffset = vec2(1.0 / shadowSize);
+  vec4 coords = vec4(lightScreenCoord.xy - shadowOffset- normalOffset, lightScreenCoord.xy + shadowOffset);
+
+  if (coords.x <= 0 || coords.x >= 1 || coords.y <= 0 || coords.y >= 1 || coords.z <= 0 || coords.z >= 1 || coords.w <= 0 || coords.w >= 1) {
+    shadow = 1.0;
+  }else {
+    vec4 moment = sampleSAT(coords) / ((2 * width + 1) * (2 * width + 1));
+    vec2 value = RecombineFP(moment) - vec2(0.5, 0.0);
+    float variance = value.y - (value.x * value.x);
+    variance = max(0.000001, variance);
+    float d = dist - value.x;
+    float pMax = variance / (variance + d * d);
+    float p;
+    if (dist <= value.x) p = 1;
+    else p = 0;
+    shadow = max(p, pMax);
+    shadow = linstep(0.18, 1, shadow);
   }
 
   Lo += radiance * BRDF * NdotL;
-  vec3 color = Lo;
+  vec3 color = ToneMap(Lo) * shadow;
+
   color += texture(uEmission, vTextureCoord).rgb;
-  FragColor = vec4(color, 1.0);
+  FragColor = vec4(UnToneMap(color), 1.0);
 }
